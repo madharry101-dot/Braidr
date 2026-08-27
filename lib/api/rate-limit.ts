@@ -76,6 +76,29 @@ function getLimiter(group: RateLimitGroup): Ratelimit | null {
  * logs a warning rather than blocking every request — it must be working
  * before production launch (PRD 8.1 launch gate: rate limiting is P1).
  */
+/**
+ * Best-effort client IP for the "per IP" limiter groups. Netlify's Next.js
+ * runtime does NOT populate `x-forwarded-for` on the Request handed to a
+ * Route Handler the way Node/Vercel does — it exposes the connecting IP as
+ * `x-nf-client-connection-ip` instead. Falling straight to a constant
+ * ("unknown") means every unauthenticated caller shares ONE bucket, so one
+ * client (or a load test) locks out everyone. Try the real headers first;
+ * only share a bucket as an absolute last resort.
+ */
+export function clientIp(request: { headers: Headers }): string {
+  const h = request.headers;
+  const nf = h.get("x-nf-client-connection-ip");
+  if (nf) return nf.trim();
+  const xff = h.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  const real = h.get("x-real-ip");
+  if (real) return real.trim();
+  return "unknown";
+}
+
 export async function checkRateLimit(group: RateLimitGroup, identifier: string) {
   const limiter = getLimiter(group);
   if (!limiter) {

@@ -3,13 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { validate } from "@/lib/api/validate";
 import { loginSchema } from "@/lib/validations/auth";
 import { ok, fail } from "@/lib/api/response";
-import { checkRateLimit } from "@/lib/api/rate-limit";
+import { checkRateLimit, clientIp } from "@/lib/api/rate-limit";
 
 // POST /api/auth/login — TRD 4.2. Sets HTTP-only session cookie via the
 // server Supabase client. No auth required.
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
-  const rateLimit = await checkRateLimit("auth", ip);
+  const rateLimit = await checkRateLimit("auth", clientIp(request));
   if (!rateLimit.success) {
     return fail("RATE_LIMITED", "Too many attempts. Please try again later.", 429);
   }

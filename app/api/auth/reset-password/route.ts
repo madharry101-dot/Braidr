@@ -3,13 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { validate } from "@/lib/api/validate";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { ok, fail } from "@/lib/api/response";
-import { checkRateLimit } from "@/lib/api/rate-limit";
+import { checkRateLimit, clientIp } from "@/lib/api/rate-limit";
 
 // POST /api/auth/reset-password — TRD 4.2. FR-AUTH-01.5: reset link expiry
 // of 1 hour is a Supabase Auth project setting, not app code.
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get("x-forwarded-for") ?? "unknown";
-  const rateLimit = await checkRateLimit("auth", ip);
+  const rateLimit = await checkRateLimit("auth", clientIp(request));
   if (!rateLimit.success) {
     return fail("RATE_LIMITED", "Too many attempts. Please try again later.", 429);
   }

@@ -8,7 +8,6 @@ import {
   BriefcaseIcon,
   ShieldIcon,
   UsersIcon,
-  ClockIcon,
 } from "@/components/nav/icons";
 
 export type NavItem = {
@@ -28,11 +27,13 @@ const CLIENT: NavItem[] = [
   { href: "/account", label: "Account", icon: UserIcon },
 ];
 
+// Hours isn't in the bottom bar — it's set once during onboarding and
+// reached from the dashboard hub card + setup checklist after that.
 const BRAIDER: NavItem[] = [
   { href: "/dashboard/braider", label: "Home", icon: HomeIcon },
   { href: "/dashboard/braider/bookings", label: "Bookings", icon: CalendarIcon },
+  { href: "/dashboard/braider/braidcare", label: "BraidCare", icon: HeartPulseIcon },
   { href: "/dashboard/braider/services", label: "Services", icon: BriefcaseIcon },
-  { href: "/dashboard/braider/availability", label: "Hours", icon: ClockIcon },
   { href: "/account", label: "Account", icon: UserIcon },
 ];
 

@@ -6,6 +6,7 @@ import type {
   BraidcareOverview,
   BraidcareSessionDetail,
   BraidcareSessionStatus,
+  BraiderClientSession,
 } from "@/lib/types/braidcare";
 
 export function useBraidcareOverview() {
@@ -56,5 +57,21 @@ export function useBuyBraidcare() {
   return useMutation({
     mutationFn: (input: { booking_id: string; type: "oneoff" | "subscription" }) =>
       api.post<{ checkout_url: string }>("/braidcare/purchase", input),
+  });
+}
+
+export function useBraiderClientSessions() {
+  return useQuery({
+    queryKey: ["braidcare", "braider-sessions"],
+    queryFn: () =>
+      api.get<{ subscribed: boolean; sessions: BraiderClientSession[] }>(
+        "/braidcare/braider-sessions"
+      ),
+  });
+}
+
+export function useBraiderBraidcareSubscribe() {
+  return useMutation({
+    mutationFn: () => api.post<{ checkout_url: string }>("/braidcare/braider-subscribe"),
   });
 }

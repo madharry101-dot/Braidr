@@ -47,6 +47,19 @@ export type BraidcareOverview = {
   sessions: BraidcareSessionSummary[];
 };
 
+/** Braider-facing row — flags and status only, never the summary or photos. */
+export type BraiderClientSession = {
+  id: string;
+  session_number: number;
+  overall_status: BraidcareOverallStatus | null;
+  condition_flags: ConditionFlag[];
+  referral_suggested: boolean;
+  report_delivered_at: string | null;
+  client_name: string;
+  service_name: string;
+  appointment_at: string | null;
+};
+
 export const OVERALL_STATUS_META: Record<
   BraidcareOverallStatus,
   { label: string; tone: "success" | "info" | "warning" | "danger"; blurb: string }

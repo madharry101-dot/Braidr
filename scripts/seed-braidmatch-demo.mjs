@@ -115,18 +115,45 @@ const BRAIDERS = [
   },
 ];
 
+async function findUserByEmail(email) {
+  for (let page = 1; page <= 20; page++) {
+    const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    const hit = data.users.find((u) => u.email === email);
+    if (hit) return hit;
+    if (data.users.length < 200) return null;
+  }
+  return null;
+}
+
 async function deleteUserByEmail(email) {
-  // page through users; small project, one page is plenty
-  const { data } = await admin.auth.admin.listUsers({ perPage: 200 });
-  const existing = data.users.find((u) => u.email === email);
-  if (existing) await admin.auth.admin.deleteUser(existing.id); // cascades to profiles + braider_profiles + services
+  const existing = await findUserByEmail(email);
+  if (!existing) return;
+  const userId = existing.id;
+
+  // auth.users -> profiles -> braider_profiles cascade, but income_records
+  // and bookings don't cascade from braider_profiles, so GoTrue's delete
+  // silently fails while they exist. Clear the dependent rows first.
+  const { data: bp } = await admin
+    .from("braider_profiles")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (bp) {
+    await admin.from("income_records").delete().eq("braider_id", bp.id);
+    await admin.from("reviews").delete().eq("braider_id", bp.id);
+    await admin.from("bookings").delete().eq("braider_id", bp.id);
+  }
+  await admin.from("bookings").delete().eq("client_id", userId);
+
+  await admin.auth.admin.deleteUser(userId, false); // false = hard delete
 }
 
 async function main() {
   console.log("Clearing previous demo rows…");
-  await Promise.all(
-    [CLIENT_EMAIL, FRESH_BRAIDER_EMAIL, ...BRAIDERS.map((b) => b.email)].map(deleteUserByEmail)
-  );
+  // Sequential — concurrent admin auth calls were unreliable.
+  for (const email of [CLIENT_EMAIL, FRESH_BRAIDER_EMAIL, ...BRAIDERS.map((b) => b.email)]) {
+    await deleteUserByEmail(email);
+  }
 
   console.log("Creating demo client…");
   await admin.auth.admin.createUser({

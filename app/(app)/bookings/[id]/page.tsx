@@ -15,6 +15,7 @@ import {
   useCancelBooking,
   useRescheduleBooking,
   useConfirmReschedule,
+  useCompleteBooking,
 } from "@/lib/hooks/braidmatch";
 import { useSession } from "@/lib/hooks/use-session";
 import { ApiError } from "@/lib/api/client";
@@ -38,6 +39,7 @@ export default function BookingDetailPage() {
   const cancel = useCancelBooking(id);
   const reschedule = useRescheduleBooking(id);
   const confirmReschedule = useConfirmReschedule(id);
+  const complete = useCompleteBooking(id);
 
   const [showCancel, setShowCancel] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
@@ -153,13 +155,8 @@ export default function BookingDetailPage() {
             <Button
               size="sm"
               className="sm:!w-auto"
-              onClick={() =>
-                runAction(async () => {
-                  // complete has no dedicated hook — direct call
-                  const { api } = await import("@/lib/api/client");
-                  await api.post(`/bookings/${id}/complete`);
-                })
-              }
+              loading={complete.isPending}
+              onClick={() => runAction(() => complete.mutateAsync())}
             >
               Mark as completed
             </Button>

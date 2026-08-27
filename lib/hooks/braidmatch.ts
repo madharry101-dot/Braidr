@@ -115,3 +115,14 @@ export function useConfirmReschedule(id: string) {
     },
   });
 }
+
+export function useCompleteBooking(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post<{ status: string }>(`/bookings/${id}/complete`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["booking", id] });
+      qc.invalidateQueries({ queryKey: ["bookings"] });
+    },
+  });
+}

@@ -1,15 +1,21 @@
 // Display formatters. Braidr is UK-only, so everything is en-GB / GBP.
 
-const gbp = new Intl.NumberFormat("en-GB", {
+const gbpWhole = new Intl.NumberFormat("en-GB", {
   style: "currency",
   currency: "GBP",
   minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+const gbpPence = new Intl.NumberFormat("en-GB", {
+  style: "currency",
+  currency: "GBP",
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
 
-/** 8500 -> "£85", 8550 -> "£85.50" */
+/** 8500 -> "£85", 8360 -> "£83.60" (2dp only when there are pence) */
 export function formatMoney(pence: number): string {
-  return gbp.format(pence / 100);
+  return (pence % 100 === 0 ? gbpWhole : gbpPence).format(pence / 100);
 }
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {

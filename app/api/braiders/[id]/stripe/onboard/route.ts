@@ -29,34 +29,47 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   const admin = createAdminClient();
   let stripeAccountId = braiderProfile.stripe_account_id;
-
-  if (!stripeAccountId) {
-    const account = await stripe.accounts.create({
-      type: "express",
-      country: "GB",
-      email: user.email,
-      capabilities: {
-        card_payments: { requested: true },
-        transfers: { requested: true },
-      },
-      business_type: "individual",
-    });
-    stripeAccountId = account.id;
-
-    const { error } = await admin
-      .from("braider_profiles")
-      .update({ stripe_account_id: stripeAccountId })
-      .eq("id", braiderProfile.id);
-    if (error) return fail("INTERNAL_ERROR", "Failed to save Stripe account.", 500);
-  }
-
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL!;
-  const accountLink = await stripe.accountLinks.create({
-    account: stripeAccountId,
-    refresh_url: `${siteUrl}/dashboard/braider/payments?refresh=true`,
-    return_url: `${siteUrl}/dashboard/braider/payments?onboarded=true`,
-    type: "account_onboarding",
-  });
 
-  return ok({ onboarding_url: accountLink.url });
+  // Stripe calls can fail for reasons outside this request's control — most
+  // notably the platform account not having Connect enabled yet. Surface
+  // those as a clean 502 with the Stripe message instead of an unhandled
+  // throw / HTML 500 the client can't parse.
+  try {
+    if (!stripeAccountId) {
+      const account = await stripe.accounts.create({
+        type: "express",
+        country: "GB",
+        email: user.email,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        business_type: "individual",
+      });
+      stripeAccountId = account.id;
+
+      const { error } = await admin
+        .from("braider_profiles")
+        .update({ stripe_account_id: stripeAccountId })
+        .eq("id", braiderProfile.id);
+      if (error) return fail("INTERNAL_ERROR", "Failed to save Stripe account.", 500);
+    }
+
+    const accountLink = await stripe.accountLinks.create({
+      account: stripeAccountId,
+      refresh_url: `${siteUrl}/dashboard/braider/payments?refresh=true`,
+      return_url: `${siteUrl}/dashboard/braider/payments?onboarded=true`,
+      type: "account_onboarding",
+    });
+
+    return ok({ onboarding_url: accountLink.url });
+  } catch (err) {
+    const message =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message: unknown }).message)
+        : "Stripe onboarding is unavailable right now.";
+    console.error("[stripe onboard]", message);
+    return fail("INTERNAL_ERROR", `Stripe couldn't start onboarding: ${message}`, 502);
+  }
 }

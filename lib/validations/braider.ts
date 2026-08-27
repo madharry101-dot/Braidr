@@ -20,6 +20,18 @@ export const updateBraiderProfileSchema = z.object({
 });
 export type UpdateBraiderProfileInput = z.infer<typeof updateBraiderProfileSchema>;
 
+// Creating the braider_profiles row (POST /api/braiders/me). city is the
+// one required field (matches the table NOT NULL); everything else can be
+// filled in later on the profile screen before the braider goes live.
+export const createBraiderProfileSchema = z.object({
+  city: z.string().trim().min(1, "City is required."),
+  area: z.string().trim().max(200).optional(),
+  bio: z.string().trim().max(2000).optional(),
+  specialisations: z.array(z.string().trim().min(1)).max(20).optional(),
+  years_experience: z.number().int().min(0).max(80).optional(),
+});
+export type CreateBraiderProfileInput = z.infer<typeof createBraiderProfileSchema>;
+
 export const createServiceSchema = z.object({
   name: z.string().trim().min(1).max(200),
   category: z.enum(["braids", "locs", "cornrows", "twists", "other"]),

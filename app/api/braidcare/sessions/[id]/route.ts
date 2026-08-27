@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: session } = await supabase
     .from("braidcare_sessions")
     .select(
-      "id, booking_id, session_number, session_type, status, overall_status, summary, condition_flags, recommendations, referral_suggested, referral_threshold_met, report_delivered_at, created_at"
+      "id, booking_id, session_number, session_type, status, photos_count, overall_status, summary, condition_flags, recommendations, referral_suggested, referral_threshold_met, report_delivered_at, created_at"
     )
     .eq("id", params.id)
     .single();

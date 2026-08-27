@@ -1,12 +1,14 @@
 import { cn } from "@/lib/cn";
 
-type Tone = "neutral" | "verified" | "braidcare" | "plum";
+type Tone = "neutral" | "verified" | "braidcare" | "plum" | "warning" | "danger";
 
 const tones: Record<Tone, string> = {
   neutral: "bg-mist/60 text-slate",
   verified: "bg-teal/10 text-teal-deep",
   braidcare: "bg-success-bg text-success",
   plum: "bg-plum text-white",
+  warning: "bg-[var(--color-warning-bg)] text-gold-deep",
+  danger: "bg-danger-bg text-danger",
 };
 
 export function Badge({

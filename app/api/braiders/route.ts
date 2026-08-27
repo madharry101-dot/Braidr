@@ -51,5 +51,43 @@ export async function GET(request: NextRequest) {
     results = results.filter((b) => idsWithAffordableService.has(b.id));
   }
 
-  return ok({ braiders: results });
+  // Hydrate each card with the braider's display name / avatar (from
+  // profiles — profiles_select_public_braiders_experts makes this readable)
+  // and their cheapest active service price. Two bulk queries rather than
+  // embedded selects — postgrest-js can't type embeds here (empty
+  // Relationships, see types/database.ts), same pattern as style-match.
+  if (results.length > 0) {
+    const braiderIds = results.map((b) => b.id);
+    const userIds = results.map((b) => b.user_id);
+    const [{ data: profiles }, { data: services }] = await Promise.all([
+      supabase.from("profiles").select("id, display_name, full_name, avatar_url").in("id", userIds),
+      supabase
+        .from("services")
+        .select("braider_id, price_from")
+        .in("braider_id", braiderIds)
+        .eq("is_active", true),
+    ]);
+
+    const profileByUser = new Map((profiles ?? []).map((p) => [p.id, p]));
+    const minPriceByBraider = new Map<string, number>();
+    for (const s of services ?? []) {
+      const current = minPriceByBraider.get(s.braider_id);
+      if (current === undefined || s.price_from < current) {
+        minPriceByBraider.set(s.braider_id, s.price_from);
+      }
+    }
+
+    const hydrated = results.map((b) => {
+      const p = profileByUser.get(b.user_id);
+      return {
+        ...b,
+        name: p?.display_name ?? p?.full_name ?? "Braidr braider",
+        avatar_url: p?.avatar_url ?? null,
+        price_from_pence: minPriceByBraider.get(b.id) ?? null,
+      };
+    });
+    return ok({ braiders: hydrated });
+  }
+
+  return ok({ braiders: [] });
 }

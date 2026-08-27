@@ -146,5 +146,38 @@ export async function GET() {
     .order("appointment_at", { ascending: false });
 
   if (error) return fail("INTERNAL_ERROR", "Failed to load bookings.", 500);
-  return ok({ bookings });
+  if (!bookings || bookings.length === 0) return ok({ bookings: [] });
+
+  // Hydrate list rows with service + participant names so the bookings
+  // screen doesn't need a query per row. RLS already scopes `bookings` to
+  // this user; the profile reads below rely on the same-direction policies
+  // (client can read their braider's public profile; braider can read their
+  // booking clients' profiles — 20260829000002).
+  const serviceIds = [...new Set(bookings.map((b) => b.service_id))];
+  const braiderIds = [...new Set(bookings.map((b) => b.braider_id))];
+  const clientIds = [...new Set(bookings.map((b) => b.client_id))];
+
+  const [{ data: services }, { data: braiderProfiles }] = await Promise.all([
+    supabase.from("services").select("id, name").in("id", serviceIds),
+    supabase.from("braider_profiles").select("id, user_id").in("id", braiderIds),
+  ]);
+
+  const braiderUserIds = (braiderProfiles ?? []).map((b) => b.user_id);
+  const { data: people } = await supabase
+    .from("profiles")
+    .select("id, display_name, full_name")
+    .in("id", [...braiderUserIds, ...clientIds]);
+
+  const serviceName = new Map((services ?? []).map((s) => [s.id, s.name]));
+  const braiderUserById = new Map((braiderProfiles ?? []).map((b) => [b.id, b.user_id]));
+  const personName = new Map((people ?? []).map((p) => [p.id, p.display_name ?? p.full_name]));
+
+  const hydrated = bookings.map((b) => ({
+    ...b,
+    service_name: serviceName.get(b.service_id) ?? "Service",
+    braider_name: personName.get(braiderUserById.get(b.braider_id) ?? "") ?? "Braider",
+    client_name: personName.get(b.client_id) ?? null,
+  }));
+
+  return ok({ bookings: hydrated });
 }

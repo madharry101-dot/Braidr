@@ -14,12 +14,18 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: braider } = await supabase
     .from("braider_profiles")
     .select(
-      "id, user_id, bio, specialisations, city, area, years_experience, is_verified, braidcare_badge_active, avg_rating, total_reviews"
+      "id, user_id, bio, specialisations, city, area, years_experience, is_verified, braidcare_badge_active, avg_rating, total_reviews, portfolio_photos"
     )
     .eq("id", params.id)
     .single();
 
   if (!braider) return fail("BRAIDER_NOT_FOUND", "Braider not found.", 404);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, full_name, avatar_url")
+    .eq("id", braider.user_id)
+    .single();
 
   const [{ data: services }, { data: reviews }] = await Promise.all([
     supabase
@@ -36,5 +42,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .limit(50),
   ]);
 
-  return ok({ braider, services: services ?? [], reviews: reviews ?? [] });
+  const braiderWithName = {
+    ...braider,
+    name: profile?.display_name ?? profile?.full_name ?? "Braidr braider",
+    avatar_url: profile?.avatar_url ?? null,
+  };
+
+  return ok({ braider: braiderWithName, services: services ?? [], reviews: reviews ?? [] });
 }

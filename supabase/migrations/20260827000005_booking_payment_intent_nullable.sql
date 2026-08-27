@@ -1,0 +1,12 @@
+-- ENGINEERING NOTE (design correction, found via live testing): the
+-- original design assumed a Checkout Session's PaymentIntent is created
+-- immediately and available as session.payment_intent at session-creation
+-- time — that's false; Stripe leaves it null until later in the session's
+-- lifecycle. Rather than depend on that timing, correlation between our
+-- booking row and Stripe now happens via metadata.booking_id (generated
+-- client-side, set on both the Checkout Session and its PaymentIntent) —
+-- see lib/bookings and the bookings/route.ts + stripe/webhook/route.ts
+-- rewrite. stripe_payment_intent_id is still stored, but only once it's
+-- actually known, at checkout.session.completed time — so it has to be
+-- nullable until then.
+alter table public.bookings alter column stripe_payment_intent_id drop not null;

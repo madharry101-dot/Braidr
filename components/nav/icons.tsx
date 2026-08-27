@@ -62,6 +62,13 @@ export const BriefcaseIcon = icon(
   </>
 );
 export const ShieldIcon = icon("ShieldIcon", <path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6Z" />);
+export const ClockIcon = icon(
+  "ClockIcon",
+  <>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </>
+);
 export const UsersIcon = icon(
   "UsersIcon",
   <>

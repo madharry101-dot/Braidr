@@ -31,6 +31,9 @@ const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_RO
 });
 
 const CLIENT_EMAIL = "demo-client@demo.braidr";
+// A braider account with NO braider_profiles row — for walking the
+// dashboard onboarding flow (create profile -> services -> hours -> Stripe).
+const FRESH_BRAIDER_EMAIL = "demo-newbraider@demo.braidr";
 const PASSWORD = "demo-password-123";
 
 const BRAIDERS = [
@@ -121,7 +124,9 @@ async function deleteUserByEmail(email) {
 
 async function main() {
   console.log("Clearing previous demo rows…");
-  await Promise.all([CLIENT_EMAIL, ...BRAIDERS.map((b) => b.email)].map(deleteUserByEmail));
+  await Promise.all(
+    [CLIENT_EMAIL, FRESH_BRAIDER_EMAIL, ...BRAIDERS.map((b) => b.email)].map(deleteUserByEmail)
+  );
 
   console.log("Creating demo client…");
   await admin.auth.admin.createUser({
@@ -129,6 +134,14 @@ async function main() {
     password: PASSWORD,
     email_confirm: true,
     user_metadata: { role: "client", full_name: "Demo Client" },
+  });
+
+  console.log("Creating fresh braider (no profile)…");
+  await admin.auth.admin.createUser({
+    email: FRESH_BRAIDER_EMAIL,
+    password: PASSWORD,
+    email_confirm: true,
+    user_metadata: { role: "braider", full_name: "Nia Fresh" },
   });
 
   for (const b of BRAIDERS) {
@@ -186,8 +199,9 @@ async function main() {
   }
 
   console.log("\nDone.");
-  console.log(`Client login:  ${CLIENT_EMAIL} / ${PASSWORD}`);
-  console.log(`Braider logins: ${BRAIDERS.map((b) => b.email).join(", ")} (same password)`);
+  console.log(`Client login:      ${CLIENT_EMAIL} / ${PASSWORD}`);
+  console.log(`Braider logins:    ${BRAIDERS.map((b) => b.email).join(", ")} (same password)`);
+  console.log(`Fresh braider:     ${FRESH_BRAIDER_EMAIL} (no profile — for onboarding flow)`);
 }
 
 main().catch((e) => {

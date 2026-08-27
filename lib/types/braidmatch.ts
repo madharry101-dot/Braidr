@@ -30,7 +30,67 @@ export type Service = {
   price_to: number | null;
   duration_mins: number;
   description: string | null;
+  /** Present on braider-owned (management) responses. */
+  is_active?: boolean;
 };
+
+export type AvailabilityRule = {
+  id: string;
+  day_of_week: number; // 0 = Sunday
+  start_time: string; // "HH:MM" or "HH:MM:SS"
+  end_time: string;
+};
+
+export type BlockedDate = {
+  id: string;
+  blocked_date: string; // "YYYY-MM-DD"
+  reason: string | null;
+};
+
+export type MyBraiderProfile = {
+  id: string;
+  bio: string | null;
+  specialisations: string[];
+  city: string;
+  area: string | null;
+  years_experience: number | null;
+  is_verified: boolean;
+  is_active: boolean;
+  braidcare_badge_active: boolean;
+  braidcare_subscribed: boolean;
+  braidr_pro_subscribed: boolean;
+  stripe_account_id: string | null;
+  stripe_charges_enabled: boolean;
+  portfolio_photos: string[];
+  avg_rating: number | null;
+  total_reviews: number;
+  verification_note: string | null;
+};
+
+export type BraiderMe = {
+  profile: MyBraiderProfile | null;
+  services: Service[];
+  availability_rules: AvailabilityRule[];
+  blocked_dates: BlockedDate[];
+};
+
+export const SERVICE_CATEGORIES: ServiceCategory[] = [
+  "braids",
+  "locs",
+  "cornrows",
+  "twists",
+  "other",
+];
+
+export const DAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 export type Review = {
   id: string;

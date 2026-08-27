@@ -8,6 +8,7 @@ import {
   BriefcaseIcon,
   ShieldIcon,
   UsersIcon,
+  ClockIcon,
 } from "@/components/nav/icons";
 
 export type NavItem = {
@@ -30,8 +31,8 @@ const CLIENT: NavItem[] = [
 const BRAIDER: NavItem[] = [
   { href: "/dashboard/braider", label: "Home", icon: HomeIcon },
   { href: "/dashboard/braider/bookings", label: "Bookings", icon: CalendarIcon },
-  { href: "/dashboard/braider/profile", label: "Profile", icon: BriefcaseIcon },
-  { href: "/dashboard/braider/pro", label: "Pro", icon: HeartPulseIcon },
+  { href: "/dashboard/braider/services", label: "Services", icon: BriefcaseIcon },
+  { href: "/dashboard/braider/availability", label: "Hours", icon: ClockIcon },
   { href: "/account", label: "Account", icon: UserIcon },
 ];
 

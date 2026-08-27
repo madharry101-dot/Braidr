@@ -16,24 +16,49 @@ const WINDOWS = {
 
 type RateLimitGroup = keyof typeof WINDOWS;
 
-const redis =
-  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
-    ? new Redis({
-        url: process.env.UPSTASH_REDIS_REST_URL,
-        token: process.env.UPSTASH_REDIS_REST_TOKEN,
-      })
-    : null;
+// Tolerate a value that was pasted with surrounding quotes or stray
+// whitespace (a common env-var mistake) rather than letting `new Redis()`
+// throw over it.
+function cleanEnv(value: string | undefined): string | undefined {
+  const v = value?.trim().replace(/^["']|["']$/g, "");
+  return v || undefined;
+}
+
+// Constructed lazily and defensively: a missing OR malformed Upstash
+// config must degrade to "fail open + warn", never crash module load
+// (which would break `next build`'s page-data collection for every route
+// that imports this file).
+let redisResolved = false;
+let redis: Redis | null = null;
+
+function getRedis(): Redis | null {
+  if (redisResolved) return redis;
+  redisResolved = true;
+
+  const url = cleanEnv(process.env.UPSTASH_REDIS_REST_URL);
+  const token = cleanEnv(process.env.UPSTASH_REDIS_REST_TOKEN);
+  if (!url || !token) return null;
+
+  try {
+    redis = new Redis({ url, token });
+  } catch (e) {
+    console.error("[rate-limit] Upstash config is invalid — rate limiting disabled.", e);
+    redis = null;
+  }
+  return redis;
+}
 
 const limiters = new Map<RateLimitGroup, Ratelimit>();
 
 function getLimiter(group: RateLimitGroup): Ratelimit | null {
-  if (!redis) return null;
+  const client = getRedis();
+  if (!client) return null;
   if (!limiters.has(group)) {
     const { limit, window } = WINDOWS[group];
     limiters.set(
       group,
       new Ratelimit({
-        redis,
+        redis: client,
         limiter: Ratelimit.slidingWindow(limit, window),
         prefix: `braidr:ratelimit:${group}`,
       })
@@ -47,17 +72,22 @@ function getLimiter(group: RateLimitGroup): Ratelimit | null {
  * user id for authenticated per-user groups (braidcareAnalyse, fileUpload,
  * styleMatch, admin), per TRD 6.4's "per IP" / "per user" column.
  *
- * If Upstash isn't configured (e.g. local dev without it set up yet), this
- * fails open and logs a warning rather than blocking every request — it
- * must be configured before production launch (PRD 8.1 launch gate implies
- * this: rate limiting is a P1 security requirement).
+ * If Upstash isn't configured (or is misconfigured), this fails open and
+ * logs a warning rather than blocking every request — it must be working
+ * before production launch (PRD 8.1 launch gate: rate limiting is P1).
  */
 export async function checkRateLimit(group: RateLimitGroup, identifier: string) {
   const limiter = getLimiter(group);
   if (!limiter) {
-    console.warn(`[rate-limit] UPSTASH_REDIS_REST_URL/TOKEN not set — "${group}" is unenforced.`);
+    console.warn(`[rate-limit] Upstash not active — "${group}" is unenforced.`);
     return { success: true as const };
   }
-  const result = await limiter.limit(identifier);
-  return { success: result.success };
+  try {
+    const result = await limiter.limit(identifier);
+    return { success: result.success };
+  } catch (e) {
+    // A Redis outage must not take auth/uploads down with it.
+    console.error(`[rate-limit] "${group}" check failed — allowing request.`, e);
+    return { success: true as const };
+  }
 }

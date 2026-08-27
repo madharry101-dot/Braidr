@@ -158,7 +158,7 @@ export default function BraiderDashboard() {
         )}
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[
           { href: "/dashboard/braider/profile", title: "Profile", body: "Bio, photos, styles" },
           {
@@ -175,6 +175,13 @@ export default function BraiderDashboard() {
             href: "/dashboard/braider/payments",
             title: "Payments",
             body: me.profile.stripe_charges_enabled ? "Connected" : "Not connected",
+          },
+          {
+            href: "/dashboard/braider/pro",
+            title: "Braidr Pro",
+            body: me.profile.braidr_pro_subscribed
+              ? "Active · 5% commission"
+              : "£35/mo · first month free",
           },
         ].map((c) => (
           <Link key={c.href} href={c.href}>

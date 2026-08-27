@@ -26,14 +26,10 @@ export function BraidcareReport({ session }: { session: BraidcareSessionDetail }
         <Link href="/braidcare" className="text-sm text-teal-deep hover:text-plum">
           ← BraidCare
         </Link>
-        <h1 className="mt-2 font-display text-2xl text-plum">
-          Session {session.session_number}
-          {session.report_delivered_at && (
-            <span className="ml-2 text-base font-normal text-slate">
-              {formatDate(session.report_delivered_at)}
-            </span>
-          )}
-        </h1>
+        <h1 className="mt-2 font-display text-2xl text-plum">Session {session.session_number}</h1>
+        {session.report_delivered_at && (
+          <p className="text-sm text-slate">{formatDate(session.report_delivered_at)}</p>
+        )}
       </div>
 
       {meta && (
@@ -54,9 +50,14 @@ export function BraidcareReport({ session }: { session: BraidcareSessionDetail }
           <h2 className="font-display text-lg text-danger">Worth a professional look</h2>
           <p className="mt-1 text-sm text-plum">
             Based on what we observed, we&rsquo;d suggest speaking to a scalp health specialist or
-            your GP. Your braider can also point you towards a professional through Braidr&rsquo;s
-            expert network.
+            your GP.
           </p>
+          <Link
+            href={`/experts?refer=${session.id}`}
+            className="mt-3 inline-flex min-h-[44px] items-center rounded bg-plum px-4 text-sm font-medium text-white hover:bg-plum-hover"
+          >
+            Find a specialist
+          </Link>
         </Card>
       )}
 

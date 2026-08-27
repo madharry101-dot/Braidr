@@ -2,22 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Braidr design tokens. Palette from the concept document:
+ * plum (ink), gold (accent), teal (secondary), cream (page).
+ * Every text pairing below meets WCAG 2.1 AA (>= 4.5:1) on its
+ * intended background — PRD 6.4.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-cream: #faf8f6; /* page background */
+  --color-surface: #ffffff; /* cards, inputs */
+  --color-plum: #2d1b35; /* primary ink + primary button */
+  --color-plum-hover: #3f2a4b;
+  --color-slate: #4a4a5a; /* body / muted text — ~7:1 on cream */
+  --color-mist: #e8e2ef; /* borders, dividers */
+  --color-gold: #c9a84c; /* decorative accent, focus glow */
+  --color-gold-deep: #7c5e12; /* gold used as text/icon on light — AA */
+  --color-teal: #2a7f7f; /* secondary actions, links */
+  --color-teal-deep: #1f5f5f;
+  --color-success: #1e6b3a;
+  --color-success-bg: #eafaf1;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdeced;
+  --color-warning-bg: #fef7e6;
+
+  --radius: 0.625rem;
+  --shadow-card: 0 1px 2px rgba(45, 27, 53, 0.06), 0 4px 16px rgba(45, 27, 53, 0.06);
+
+  /* Display face for headings. Georgia is the deliberate v1 choice — a
+     web-safe serif that gives Braidr an editorial feel with zero font
+     loading. Swap this one line when a licensed display font is picked. */
+  --font-display: Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--color-mist);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-plum);
+  font-family:
+    var(--font-sans),
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Visible focus ring everywhere — keyboard nav, PRD 6.4 */
+:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 @layer utilities {

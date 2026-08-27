@@ -1,0 +1,16 @@
+# Netlify config. The Next.js runtime is applied automatically when Netlify
+# detects Next.js; the plugin block below just makes it explicit.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Scheduled functions live in netlify/functions/ and declare their own
+# cron schedule via `export const config`. Unlike Vercel Hobby (daily
+# only, 2 jobs max) Netlify's free tier allows minute-level schedules, so
+# the three cron tasks run independently at the cadence each needs — see
+# the individual files.
+[functions]
+  node_bundler = "esbuild"

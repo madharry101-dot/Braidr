@@ -85,7 +85,31 @@ export async function GET() {
       )
       .order("created_at", { ascending: false });
     if (error) return fail("INTERNAL_ERROR", "Failed to load referrals.", 500);
-    return ok({ referrals });
+
+    // Hydrate the expert name so the admin table is legible.
+    const rows = referrals ?? [];
+    const { data: experts } = await admin
+      .from("expert_profiles")
+      .select("id, user_id, credentials")
+      .in("id", [...new Set(rows.map((r) => r.expert_id))]);
+    const { data: people } = await admin
+      .from("profiles")
+      .select("id, display_name, full_name")
+      .in(
+        "id",
+        (experts ?? []).map((e) => e.user_id)
+      );
+    const nameByUser = new Map((people ?? []).map((p) => [p.id, p.display_name ?? p.full_name]));
+    const expertMeta = new Map(
+      (experts ?? []).map((e) => [e.id, { name: nameByUser.get(e.user_id) ?? e.credentials }])
+    );
+
+    return ok({
+      referrals: rows.map((r) => ({
+        ...r,
+        expert_name: expertMeta.get(r.expert_id)?.name ?? "Expert",
+      })),
+    });
   }
 
   const { data: expertProfile } = await supabase

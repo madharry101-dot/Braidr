@@ -21,5 +21,38 @@ export async function GET() {
     .eq("status", "disputed")
     .order("created_at", { ascending: true });
   if (error) return fail("INTERNAL_ERROR", "Failed to load disputes.", 500);
-  return ok({ disputes: disputes ?? [] });
+
+  const rows = disputes ?? [];
+  const [{ data: services }, { data: braiderProfiles }] = await Promise.all([
+    admin
+      .from("services")
+      .select("id, name")
+      .in(
+        "id",
+        rows.map((d) => d.service_id)
+      ),
+    admin
+      .from("braider_profiles")
+      .select("id, user_id")
+      .in(
+        "id",
+        rows.map((d) => d.braider_id)
+      ),
+  ]);
+  const braiderUser = new Map((braiderProfiles ?? []).map((b) => [b.id, b.user_id]));
+  const { data: people } = await admin
+    .from("profiles")
+    .select("id, display_name, full_name")
+    .in("id", [...rows.map((d) => d.client_id), ...(braiderProfiles ?? []).map((b) => b.user_id)]);
+  const name = new Map((people ?? []).map((p) => [p.id, p.display_name ?? p.full_name]));
+  const serviceName = new Map((services ?? []).map((s) => [s.id, s.name]));
+
+  return ok({
+    disputes: rows.map((d) => ({
+      ...d,
+      service_name: serviceName.get(d.service_id) ?? "Service",
+      client_name: name.get(d.client_id) ?? "Client",
+      braider_name: name.get(braiderUser.get(d.braider_id) ?? "") ?? "Braider",
+    })),
+  });
 }

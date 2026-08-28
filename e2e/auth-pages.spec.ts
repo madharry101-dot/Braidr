@@ -27,6 +27,16 @@ test.describe("/login renders a usable form", () => {
   });
 });
 
+test.describe("/dashboard routes by role", () => {
+  test("unauthenticated /dashboard redirects to login (server-side)", async ({ page }) => {
+    const res = await page.goto("/dashboard");
+    // middleware.ts issues a real 307 before any layout renders.
+    expect(res?.status()).toBeLessThan(400);
+    await expect(page).toHaveURL(/\/login\?redirect=%2Fdashboard/);
+    await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();
+  });
+});
+
 test.describe("/braiders is never a blank page", () => {
   test("unauthenticated visit lands on a working login form, not nothing", async ({ page }) => {
     await page.goto("/braiders");

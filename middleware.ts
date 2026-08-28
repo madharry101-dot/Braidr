@@ -14,18 +14,28 @@ const ROLE_GATED_PREFIXES: Array<{ prefix: string; roles: string[] }> = [
   { prefix: "/admin", roles: ["admin"] },
 ];
 
+// PRD v2.0 §4.11 — `/dashboard` is the canonical role-aware entry point.
+// Resolved here (server-side, before any layout renders) rather than in a
+// page component, so it's a clean 307 with no client-shell flash.
+const DASHBOARD_HOME: Record<string, string> = {
+  client: "/dashboard/client",
+  braider: "/dashboard/braider",
+  expert: "/dashboard/expert",
+  admin: "/admin",
+};
+
 export async function middleware(request: NextRequest) {
   const { response, user } = await updateSession(request);
+  const { pathname } = request.nextUrl;
 
-  const gate = ROLE_GATED_PREFIXES.find(({ prefix }) =>
-    request.nextUrl.pathname.startsWith(prefix)
-  );
+  const isDashboardIndex = pathname === "/dashboard";
+  const gate = ROLE_GATED_PREFIXES.find(({ prefix }) => pathname.startsWith(prefix));
 
-  if (!gate) return response;
+  if (!gate && !isDashboardIndex) return response;
 
   if (!user) {
     const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", request.nextUrl.pathname);
+    loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
@@ -50,7 +60,16 @@ export async function middleware(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
-  if (!profile || !gate.roles.includes(profile.role)) {
+  if (isDashboardIndex) {
+    if (!profile) return NextResponse.redirect(new URL("/login", request.url));
+    if (profile.is_suspended) {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    return NextResponse.redirect(new URL(DASHBOARD_HOME[profile.role], request.url));
+  }
+
+  if (!profile || !gate!.roles.includes(profile.role)) {
     return NextResponse.redirect(new URL("/", request.url));
   }
   if (profile.is_suspended) {

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { CookieBanner } from "@/components/legal/cookie-banner";
 
 // Geist ships in the repo already (app/fonts). Body copy only — display
 // headings use the CSS serif stack (--font-display, Georgia) defined in
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en-GB" className={sans.variable}>
       <body className="min-h-screen bg-cream text-plum">
         <Providers>{children}</Providers>
+        <CookieBanner />
       </body>
     </html>
   );

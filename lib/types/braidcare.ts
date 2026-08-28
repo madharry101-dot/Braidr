@@ -8,7 +8,7 @@ export type BraidcareSessionType = "included" | "purchased_oneoff" | "subscripti
 /** Row from GET /api/braidcare/sessions (list) and /overview. */
 export type BraidcareSessionSummary = {
   id: string;
-  booking_id: string;
+  booking_id: string | null;
   session_number: number;
   session_type: BraidcareSessionType;
   status: BraidcareSessionStatus;
@@ -43,6 +43,7 @@ export type BraidcareBookingRow = {
 
 export type BraidcareOverview = {
   client_subscribed: boolean;
+  subscription_period_end: string | null;
   bookings: BraidcareBookingRow[];
   sessions: BraidcareSessionSummary[];
 };

@@ -38,7 +38,11 @@ export async function GET() {
     .eq("status", "completed")
     .order("report_delivered_at", { ascending: false });
 
-  const rows = sessions ?? [];
+  // A braider only ever sees sessions tied to one of their bookings (RLS);
+  // standalone subscriber sessions (booking_id null) never reach here.
+  const rows = (sessions ?? []).filter(
+    (s): s is typeof s & { booking_id: string } => s.booking_id !== null
+  );
   const bookingIds = [...new Set(rows.map((s) => s.booking_id))];
   const clientIds = [...new Set(rows.map((s) => s.client_id))];
 

@@ -33,8 +33,12 @@ export function useBraidcareSession(id: string) {
 export function useStartBraidcareSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (booking_id: string) =>
-      api.post<{ session: { id: string } }>("/braidcare/sessions", { booking_id }),
+    // booking_id omitted -> standalone session (subscribers only).
+    mutationFn: (booking_id?: string) =>
+      api.post<{ session: { id: string } }>(
+        "/braidcare/sessions",
+        booking_id ? { booking_id } : {}
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["braidcare", "overview"] }),
   });
 }
@@ -53,10 +57,17 @@ export function useAnalyseBraidcareSession(id: string) {
   });
 }
 
-export function useBuyBraidcare() {
+export function useSubscribeBraidcare() {
   return useMutation({
-    mutationFn: (input: { booking_id: string; type: "oneoff" | "subscription" }) =>
-      api.post<{ checkout_url: string }>("/braidcare/purchase", input),
+    mutationFn: () => api.post<{ checkout_url: string }>("/braidcare/subscribe"),
+  });
+}
+
+export function useCancelBraidcareSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.del<{ cancel_at_period_end: boolean }>("/braidcare/subscribe"),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["braidcare", "overview"] }),
   });
 }
 

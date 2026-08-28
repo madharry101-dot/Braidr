@@ -48,8 +48,12 @@ export async function runAnalysis(admin: ReturnType<typeof createAdminClient>, s
       .single();
     if (error || !updated) return { ok: false as const };
 
-    // Session only "consumes" quota on successful delivery (FR-CARE-02.8).
-    await admin.rpc("increment_booking_sessions_used", { p_booking_id: session.booking_id });
+    // Free-tier sessions "consume" one of the booking's 3 on successful
+    // delivery (FR-CARE-02.8). Subscriber / standalone sessions have no
+    // booking and no cap, so nothing to increment.
+    if (session.booking_id) {
+      await admin.rpc("increment_booking_sessions_used", { p_booking_id: session.booking_id });
+    }
 
     const { data: clientUser } = await admin.auth.admin.getUserById(session.client_id);
     if (clientUser?.user?.email) {

@@ -17,6 +17,7 @@ export type BookingStatus =
   | "payment_failed";
 export type ServiceCategory = "braids" | "locs" | "cornrows" | "twists" | "other";
 export type BraidcareSessionType = "included" | "purchased_oneoff" | "subscription";
+export type BraidcareSubscriptionStatus = "active" | "cancelled" | "past_due";
 export type BraidcareSessionStatus = "pending" | "in_progress" | "completed" | "expired";
 export type BraidcareOverallStatus =
   "looking_good" | "monitor_closely" | "consider_rest" | "seek_specialist";
@@ -192,7 +193,6 @@ export interface Database {
           stripe_transfer_id: string | null;
           sessions_allocated: number;
           sessions_used: number;
-          sessions_purchased: number;
           cancellation_reason: string | null;
           completed_at: string | null;
           pending_reschedule_at: string | null;
@@ -240,7 +240,7 @@ export interface Database {
       braidcare_sessions: {
         Row: {
           id: string;
-          booking_id: string;
+          booking_id: string | null; // null = standalone session (subscriber, no booking)
           client_id: string;
           session_number: number;
           session_type: BraidcareSessionType;
@@ -258,7 +258,7 @@ export interface Database {
           created_at: string;
         };
         Insert: {
-          booking_id: string;
+          booking_id?: string | null;
           client_id: string;
           session_number: number;
           session_type: BraidcareSessionType;
@@ -530,6 +530,36 @@ export interface Database {
         Update: NoClientWrite; // append-only — never updated
         Relationships: [];
       };
+      braidcare_subscriptions: {
+        // TRD v2.0 §3.3 — client £7.99/mo unlimited BraidCare. Written only
+        // by the Stripe webhook (service role).
+        Row: {
+          id: string;
+          user_id: string;
+          role: "client" | "braider";
+          stripe_subscription_id: string;
+          status: BraidcareSubscriptionStatus;
+          price_pence: number;
+          current_period_end: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          role: "client" | "braider";
+          stripe_subscription_id: string;
+          status?: BraidcareSubscriptionStatus;
+          price_pence: number;
+          current_period_end: string;
+        };
+        Update: Partial<{
+          status: BraidcareSubscriptionStatus;
+          stripe_subscription_id: string;
+          price_pence: number;
+          current_period_end: string;
+        }>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -538,10 +568,6 @@ export interface Database {
         Returns: string[];
       };
       increment_booking_sessions_used: {
-        Args: { p_booking_id: string };
-        Returns: undefined;
-      };
-      increment_booking_sessions_purchased: {
         Args: { p_booking_id: string };
         Returns: undefined;
       };

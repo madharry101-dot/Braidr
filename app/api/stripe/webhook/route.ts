@@ -68,9 +68,6 @@ async function handleCheckoutCompleted(
 ) {
   const type = session.metadata?.type;
 
-  if (type === "braidcare_purchase_oneoff") {
-    return handleBraidcareOneoffPurchase(admin, session);
-  }
   if (
     type === "braidcare_client_subscription" ||
     type === "braidcare_braider_subscription" ||
@@ -171,15 +168,6 @@ async function handleBookingCheckoutCompleted(
   }
 }
 
-async function handleBraidcareOneoffPurchase(
-  admin: ReturnType<typeof createAdminClient>,
-  session: Stripe.Checkout.Session
-) {
-  const bookingId = session.metadata?.booking_id;
-  if (!bookingId) return;
-  await admin.rpc("increment_booking_sessions_purchased", { p_booking_id: bookingId });
-}
-
 async function handlePaymentFailed(
   admin: ReturnType<typeof createAdminClient>,
   pi: Stripe.PaymentIntent
@@ -249,6 +237,30 @@ async function handleSubscriptionChange(
   const metadata = subscription.metadata;
 
   if (metadata.subscription_type === "braidcare_client" && metadata.user_id) {
+    // Source of truth is braidcare_subscriptions (TRD v2.0 §3.3); the
+    // profiles boolean is kept in sync for the reads that still use it.
+    const status = forceInactive
+      ? "cancelled"
+      : subscription.status === "past_due"
+        ? "past_due"
+        : subscribed
+          ? "active"
+          : "cancelled";
+    // current_period_end moved to the subscription item in recent Stripe
+    // API versions; fall back to +30 days if somehow absent.
+    const periodEndUnix =
+      subscription.items.data[0]?.current_period_end ?? Math.floor(Date.now() / 1000) + 2_592_000;
+    await admin.from("braidcare_subscriptions").upsert(
+      {
+        user_id: metadata.user_id,
+        role: "client",
+        stripe_subscription_id: subscription.id,
+        status,
+        price_pence: 799,
+        current_period_end: new Date(periodEndUnix * 1000).toISOString(),
+      },
+      { onConflict: "user_id" }
+    );
     await admin
       .from("profiles")
       .update({ braidcare_client_subscribed: subscribed })

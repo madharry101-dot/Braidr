@@ -26,6 +26,7 @@ export const ERROR_CODES = [
   // BraidCare (TRD 4.5.1 / 8.2.1 — exact names)
   "WINDOW_NOT_OPEN",
   "NO_SESSIONS_LEFT",
+  "NO_BOOKING_OR_SUBSCRIPTION", // v2 §1.1a — neither access path available
 
   // Stripe / payments
   "PAYMENT_FAILED",

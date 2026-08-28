@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { ContinueWithGoogle, OrDivider } from "@/components/auth/continue-with-google";
 import { api, ApiError } from "@/lib/api/client";
 import { DASHBOARD_PATH, type SessionUser } from "@/lib/hooks/use-session";
 
@@ -15,6 +16,7 @@ function LoginForm() {
   const params = useSearchParams();
   const queryClient = useQueryClient();
   const redirectTo = params.get("redirect");
+  const oauthFailed = params.get("error") === "oauth";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,7 +53,18 @@ function LoginForm() {
       <h1 className="font-display text-2xl text-plum">Sign in</h1>
       <p className="mt-1 text-sm text-slate">Welcome back to Braidr.</p>
 
-      <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4" noValidate>
+      {oauthFailed && (
+        <div className="mt-4">
+          <Alert tone="error">Google sign-in didn&rsquo;t complete. Please try again.</Alert>
+        </div>
+      )}
+
+      <div className="mt-6 flex flex-col gap-3">
+        <ContinueWithGoogle />
+        <OrDivider />
+      </div>
+
+      <form onSubmit={onSubmit} className="mt-3 flex flex-col gap-4" noValidate>
         {error && <Alert tone="error">{error}</Alert>}
         <Input
           label="Email"
@@ -71,7 +84,7 @@ function LoginForm() {
           error={fieldError}
         />
         <div className="text-right text-sm">
-          <Link href="/reset-password" className="text-teal-deep underline hover:text-plum">
+          <Link href="/forgot-password" className="text-teal-deep underline hover:text-plum">
             Forgot password?
           </Link>
         </div>

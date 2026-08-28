@@ -7,6 +7,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Input, Select } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { ConsentFields } from "@/components/auth/consent-fields";
+import { ContinueWithGoogle, OrDivider } from "@/components/auth/continue-with-google";
 import { api, ApiError } from "@/lib/api/client";
 import { DASHBOARD_PATH, type SessionUser } from "@/lib/hooks/use-session";
 
@@ -26,6 +28,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<RoleOption>("client");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -35,11 +39,22 @@ export default function RegisterPage() {
     e.preventDefault();
     setErrors({});
     setFormError(null);
+    if (!acceptedTerms) {
+      setErrors({ accepted_terms: "You must accept the Terms and Privacy Policy to register." });
+      return;
+    }
     setPending(true);
     try {
       const res = await api.post<{ user_id: string; email_confirmation_required: boolean }>(
         "/auth/register",
-        { full_name: fullName, email, password, role }
+        {
+          full_name: fullName,
+          email,
+          password,
+          role,
+          accepted_terms: true,
+          marketing_opt_in: marketingOptIn,
+        }
       );
       if (res.email_confirmation_required) {
         setConfirmSent(true);
@@ -84,7 +99,12 @@ export default function RegisterPage() {
       <h1 className="font-display text-2xl text-plum">Create your account</h1>
       <p className="mt-1 text-sm text-slate">One account for booking, BraidCare and Pro.</p>
 
-      <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4" noValidate>
+      <div className="mt-6 flex flex-col gap-3">
+        <ContinueWithGoogle label="Sign up with Google" />
+        <OrDivider />
+      </div>
+
+      <form onSubmit={onSubmit} className="mt-3 flex flex-col gap-4" noValidate>
         {formError && <Alert tone="error">{formError}</Alert>}
         <Input
           label="Full name"
@@ -125,7 +145,23 @@ export default function RegisterPage() {
           <option value="braider">A braider</option>
           <option value="expert">A clinical expert</option>
         </Select>
-        <Button type="submit" size="lg" loading={pending} className="w-full">
+
+        <ConsentFields
+          acceptedTerms={acceptedTerms}
+          onAcceptedTermsChange={setAcceptedTerms}
+          marketingOptIn={marketingOptIn}
+          onMarketingOptInChange={setMarketingOptIn}
+          termsError={errors.accepted_terms}
+          disabled={pending}
+        />
+
+        <Button
+          type="submit"
+          size="lg"
+          loading={pending}
+          disabled={!acceptedTerms}
+          className="w-full"
+        >
           Create account
         </Button>
       </form>

@@ -27,6 +27,33 @@ test.describe("/login renders a usable form", () => {
   });
 });
 
+test.describe("auth pages carry the v2 additions", () => {
+  test("/login and /register both offer Continue with Google", async ({ page }) => {
+    await page.goto("/login");
+    await expect(page.getByRole("button", { name: /continue with google/i })).toBeVisible();
+
+    await page.goto("/register");
+    await expect(page.getByRole("button", { name: /sign up with google/i })).toBeVisible();
+  });
+
+  test("/register gates the submit on Terms consent (GDPR-01)", async ({ page }) => {
+    await page.goto("/register");
+    const submit = page.getByRole("button", { name: "Create account" });
+    const terms = page.getByLabel(/I agree to the/i);
+
+    await expect(terms).not.toBeChecked();
+    await expect(submit).toBeDisabled();
+    await terms.check();
+    await expect(submit).toBeEnabled();
+  });
+
+  test("/forgot-password renders (route renamed from /reset-password)", async ({ page }) => {
+    const res = await page.goto("/forgot-password");
+    expect(res?.status()).toBeLessThan(400);
+    await expect(page.getByRole("button", { name: "Send reset link" })).toBeVisible();
+  });
+});
+
 test.describe("/dashboard routes by role", () => {
   test("unauthenticated /dashboard redirects to login (server-side)", async ({ page }) => {
     const res = await page.goto("/dashboard");

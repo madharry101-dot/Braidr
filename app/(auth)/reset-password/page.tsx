@@ -1,45 +1,82 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { api, ApiError } from "@/lib/api/client";
+import { createClient } from "@/lib/supabase/client";
 
+// PRD v2.0 §4.11 — /reset-password is the "set a new password" page reached
+// from the emailed recovery link (the request form is /forgot-password).
+// The browser client (detectSessionInUrl) turns the URL token into a
+// temporary session; we then set the new password with updateUser().
 export default function ResetPasswordPage() {
-  const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
+  const router = useRouter();
+  const [ready, setReady] = useState(false);
+  const [linkValid, setLinkValid] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }) => {
+      setLinkValid(Boolean(data.session));
+      setReady(true);
+    });
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setPending(true);
-    try {
-      await api.post("/auth/reset-password", { email });
-      setSent(true);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
-    } finally {
-      setPending(false);
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
     }
+    if (password !== confirm) {
+      setError("The two passwords don't match.");
+      return;
+    }
+    setPending(true);
+    const supabase = createClient();
+    const { error: updateError } = await supabase.auth.updateUser({ password });
+    if (updateError) {
+      setError(updateError.message);
+      setPending(false);
+      return;
+    }
+    await supabase.auth.signOut();
+    setDone(true);
+    setTimeout(() => router.replace("/login"), 2000);
   }
 
-  if (sent) {
+  if (!ready) return null;
+
+  if (done) {
     return (
       <div>
-        <h1 className="font-display text-2xl text-plum">Check your email</h1>
+        <h1 className="font-display text-2xl text-plum">Password updated</h1>
+        <p className="mt-3 text-sm text-slate">Taking you to the sign-in page&hellip;</p>
+      </div>
+    );
+  }
+
+  if (!linkValid) {
+    return (
+      <div>
+        <h1 className="font-display text-2xl text-plum">Link expired</h1>
         <p className="mt-3 text-sm text-slate">
-          If an account exists for <span className="font-medium text-plum">{email}</span>,
-          we&rsquo;ve sent a link to reset your password. The link expires in one hour.
+          This reset link is invalid or has already been used. Request a new one.
         </p>
         <Link
-          href="/login"
+          href="/forgot-password"
           className="mt-6 inline-block font-medium text-teal-deep underline hover:text-plum"
         >
-          Back to sign in
+          Request a new link
         </Link>
       </div>
     );
@@ -47,29 +84,31 @@ export default function ResetPasswordPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-plum">Reset your password</h1>
-      <p className="mt-1 text-sm text-slate">
-        Enter your email and we&rsquo;ll send you a reset link.
-      </p>
+      <h1 className="font-display text-2xl text-plum">Choose a new password</h1>
       <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4" noValidate>
         {error && <Alert tone="error">{error}</Alert>}
         <Input
-          label="Email"
-          type="email"
-          autoComplete="email"
+          label="New password"
+          type="password"
+          autoComplete="new-password"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          minLength={8}
+          hint="At least 8 characters."
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <Input
+          label="Confirm new password"
+          type="password"
+          autoComplete="new-password"
+          required
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
         />
         <Button type="submit" size="lg" loading={pending} className="w-full">
-          Send reset link
+          Update password
         </Button>
       </form>
-      <p className="mt-6 text-center text-sm text-slate">
-        <Link href="/login" className="font-medium text-teal-deep underline hover:text-plum">
-          Back to sign in
-        </Link>
-      </p>
     </div>
   );
 }

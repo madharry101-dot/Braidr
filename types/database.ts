@@ -59,7 +59,14 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
-        Insert: NoClientWrite; // created only by the handle_new_user() trigger
+        // Normally created by the handle_new_user() trigger. The one
+        // sanctioned service-role insert is /api/auth/complete-oauth-registration
+        // (Google users have no role at signup, so the trigger skips them).
+        Insert: {
+          id: string;
+          role: Role;
+          full_name: string;
+        };
         Update: Partial<{
           display_name: string | null;
           avatar_url: string | null;
@@ -541,6 +548,10 @@ export interface Database {
       increment_expert_referral_count: {
         Args: { p_expert_id: string };
         Returns: undefined;
+      };
+      email_is_google_only: {
+        Args: { p_email: string };
+        Returns: boolean;
       };
     };
     Enums: {

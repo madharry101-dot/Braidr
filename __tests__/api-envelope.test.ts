@@ -9,11 +9,25 @@ describe("API validation wrapper (TRD 4.1.1 envelope)", () => {
       password: "correct-horse-battery",
       full_name: "Adaeze",
       role: "client",
+      accepted_terms: true,
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.email).toBe("adaeze@example.com"); // normalised
+      expect(result.data.marketing_opt_in).toBe(false); // defaults off (GDPR-02)
     }
+  });
+
+  it("rejects registration without Terms/Privacy consent (GDPR-01)", () => {
+    const result = validate(registerSchema, {
+      email: "adaeze@example.com",
+      password: "correct-horse-battery",
+      full_name: "Adaeze",
+      role: "client",
+      accepted_terms: false,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.response.status).toBe(422);
   });
 
   it("returns a 422 envelope with a field name on invalid input", async () => {
@@ -22,6 +36,7 @@ describe("API validation wrapper (TRD 4.1.1 envelope)", () => {
       password: "x",
       full_name: "",
       role: "client",
+      accepted_terms: true,
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {

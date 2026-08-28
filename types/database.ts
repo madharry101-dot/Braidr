@@ -21,6 +21,12 @@ export type BraidcareSessionStatus = "pending" | "in_progress" | "completed" | "
 export type BraidcareOverallStatus =
   "looking_good" | "monitor_closely" | "consider_rest" | "seek_specialist";
 export type BraidcareFlagSeverity = "low" | "medium" | "high";
+export type ConsentType =
+  | "terms_and_privacy"
+  | "marketing"
+  | "cookies_analytics"
+  | "braidcare_photo_processing"
+  | "expert_referral_share";
 
 export type ConditionFlag = {
   area: string;
@@ -494,6 +500,27 @@ export interface Database {
           comment?: string | null;
         };
         Update: NoClientWrite; // moderation only, via service role
+        Relationships: [];
+      };
+      consent_events: {
+        // Append-only GDPR consent log — TRD v2.0 Section 3.5.
+        Row: {
+          id: string;
+          user_id: string;
+          consent_type: ConsentType;
+          consent_version: string;
+          granted: boolean;
+          ip_address: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          consent_type: ConsentType;
+          consent_version: string;
+          granted: boolean;
+          ip_address?: string | null;
+        };
+        Update: NoClientWrite; // append-only — never updated
         Relationships: [];
       };
     };

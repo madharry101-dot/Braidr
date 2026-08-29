@@ -8,6 +8,7 @@ import { ProfileSection } from "@/components/settings/profile-section";
 import { NotificationsSection } from "@/components/settings/notifications-section";
 import { AccountSection } from "@/components/settings/account-section";
 import { BillingSection } from "@/components/settings/billing-section";
+import { BraidcareDataSection } from "@/components/settings/braidcare-data-section";
 import { PrivacySection } from "@/components/settings/privacy-section";
 import { ReferralCard } from "@/components/referral/referral-card";
 import { useSettingsProfile } from "@/lib/hooks/settings";
@@ -63,6 +64,7 @@ export default function SettingsPage() {
       )}
 
       <NotificationsSection />
+      {role === "client" && <BraidcareDataSection />}
       <AccountSection email={profile.email} />
       {role !== "expert" && <BillingSection role={role} />}
       <ReferralCard role={role === "admin" ? "client" : role} />

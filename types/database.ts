@@ -62,6 +62,7 @@ export interface Database {
           notification_preferences: Record<string, boolean>;
           date_of_birth: string | null;
           hair_type: string | null;
+          deleted_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -84,6 +85,7 @@ export interface Database {
           notification_preferences: Record<string, boolean>;
           date_of_birth: string | null;
           hair_type: string | null;
+          deleted_at: string | null;
           // full_name is not owner-editable in any route today — it's only
           // in this type for the admin anonymisation path (DELETE
           // /api/admin/users/:id), which overwrites it with "Deleted User".
@@ -516,6 +518,18 @@ export interface Database {
           comment?: string | null;
         };
         Update: NoClientWrite; // moderation only, via service role
+        Relationships: [];
+      };
+      data_export_requests: {
+        Row: {
+          id: string;
+          user_id: string;
+          status: "pending" | "fulfilled" | "cancelled";
+          requested_at: string;
+          fulfilled_at: string | null;
+        };
+        Insert: { user_id: string; status?: "pending" | "fulfilled" | "cancelled" };
+        Update: Partial<{ status: "pending" | "fulfilled" | "cancelled"; fulfilled_at: string | null }>;
         Relationships: [];
       };
       consent_events: {

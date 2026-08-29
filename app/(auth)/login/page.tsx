@@ -17,6 +17,7 @@ function LoginForm() {
   const queryClient = useQueryClient();
   const redirectTo = params.get("redirect");
   const oauthFailed = params.get("error") === "oauth";
+  const accountDeleted = params.get("deleted") === "1";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -56,6 +57,13 @@ function LoginForm() {
       {oauthFailed && (
         <div className="mt-4">
           <Alert tone="error">Google sign-in didn&rsquo;t complete. Please try again.</Alert>
+        </div>
+      )}
+      {accountDeleted && (
+        <div className="mt-4">
+          <Alert tone="info">
+            Your account has been deleted. Personal data is removed within 30 days.
+          </Alert>
         </div>
       )}
 

@@ -2,16 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/ui/page-header";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { LoadingBlock, Spinner } from "@/components/ui/spinner";
 import { PhotoGuidance } from "@/components/braidcare/photo-guidance";
 import { PhotoCapture } from "@/components/braidcare/photo-capture";
+import { PhotoConsentScreen } from "@/components/braidcare/photo-consent-screen";
 import { BraidcareReport } from "@/components/braidcare/report";
 import { BraidcareDisclaimer } from "@/components/braidcare/disclaimer";
-import { useBraidcareSession, useAnalyseBraidcareSession } from "@/lib/hooks/braidcare";
+import {
+  useBraidcareSession,
+  useAnalyseBraidcareSession,
+  usePhotoConsent,
+} from "@/lib/hooks/braidcare";
 import { ApiError } from "@/lib/api/client";
 
 function Analysing() {
@@ -29,8 +35,11 @@ function Analysing() {
 
 export default function BraidcareSessionPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: session, isLoading, isError, error } = useBraidcareSession(id);
   const analyse = useAnalyseBraidcareSession(id);
+  const consent = usePhotoConsent();
 
   const [photoCountOverride, setPhotoCountOverride] = useState<number | null>(null);
   const [queued, setQueued] = useState(false);
@@ -68,7 +77,21 @@ export default function BraidcareSessionPage() {
     );
   }
 
-  // status === "pending"
+  // status === "pending" — GDPR-04: no photo without current consent.
+  if (consent.isLoading) return <LoadingBlock label="Loading session" />;
+  if (!consent.data?.consented) {
+    return (
+      <div className="mx-auto max-w-2xl py-6">
+        <PhotoConsentScreen
+          onConsented={() =>
+            queryClient.invalidateQueries({ queryKey: ["braidcare", "photo-consent"] })
+          }
+          onDecline={() => router.push("/braidcare")}
+        />
+      </div>
+    );
+  }
+
   const canAnalyse = photoCount > 0;
 
   async function runAnalysis() {

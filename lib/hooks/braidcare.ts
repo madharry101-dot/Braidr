@@ -57,6 +57,15 @@ export function useAnalyseBraidcareSession(id: string) {
   });
 }
 
+// GDPR-04 — whether the user currently holds scalp-photo processing consent.
+export function usePhotoConsent() {
+  return useQuery({
+    queryKey: ["braidcare", "photo-consent"],
+    queryFn: () =>
+      api.get<{ consented: boolean; since: string | null }>("/braidcare/photo-consent"),
+  });
+}
+
 export function useSubscribeBraidcare() {
   return useMutation({
     mutationFn: () => api.post<{ checkout_url: string }>("/braidcare/subscribe"),

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { validate } from "@/lib/api/validate";
 import { createReferralSchema } from "@/lib/validations/expert";
 import { isAdmin } from "@/lib/auth/require-admin";
+import { EXPERT_REFERRAL_SHARE_VERSION } from "@/lib/consent/versions";
 import { ok, fail } from "@/lib/api/response";
 
 // POST /api/experts/referrals — TRD 4.7 / PRD FR-EXP-01.3-01.4. Records
@@ -56,6 +57,15 @@ export async function POST(request: NextRequest) {
     .select("id")
     .single();
   if (error || !referral) return fail("INTERNAL_ERROR", "Failed to record referral.", 500);
+
+  // GDPR-06 — the referral data-share decision is also a consent event, so
+  // it lands in the single consent log alongside everything else.
+  await supabase.from("consent_events").insert({
+    user_id: user.id,
+    consent_type: "expert_referral_share",
+    consent_version: EXPERT_REFERRAL_SHARE_VERSION,
+    granted: consent_given,
+  });
 
   const admin = createAdminClient();
   await admin.rpc("increment_expert_referral_count", { p_expert_id: expert_id });

@@ -101,7 +101,13 @@ export async function POST(request: NextRequest) {
       metadata: { type: "booking", booking_id: bookingId },
       payment_intent_data: { metadata: { type: "booking", booking_id: bookingId } },
       success_url: `${siteUrl}/bookings/confirmed?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/braiders/${braider_id}?booking=cancelled`,
+      // Land back on the (still pending) booking so the client can pay
+      // later or cancel it — rather than dumping them on the braider page
+      // with a ghost booking they don't know about.
+      cancel_url: `${siteUrl}/bookings/${bookingId}?checkout=abandoned`,
+      // Minimum Stripe allows. Keeps an abandoned checkout from holding the
+      // slot for the default 24h; checkout.session.expired then frees it.
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
     },
     { idempotencyKey }
   );
@@ -118,6 +124,7 @@ export async function POST(request: NextRequest) {
       commission_pence,
       braider_payout_pence,
       status: "pending",
+      stripe_checkout_session_id: session.id,
     })
     .select("id")
     .single();

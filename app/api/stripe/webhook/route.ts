@@ -32,6 +32,9 @@ export async function POST(request: Request) {
     case "checkout.session.completed":
       await handleCheckoutCompleted(admin, event.data.object as Stripe.Checkout.Session);
       break;
+    case "checkout.session.expired":
+      await handleCheckoutExpired(admin, event.data.object as Stripe.Checkout.Session);
+      break;
     case "payment_intent.payment_failed":
       await handlePaymentFailed(admin, event.data.object as Stripe.PaymentIntent);
       break;
@@ -166,6 +169,24 @@ async function handleBookingCheckoutCompleted(
       text: "You have a new confirmed booking. Check your dashboard for details.",
     });
   }
+}
+
+// checkout.session.expired — the client opened checkout for a booking and
+// never paid (abandoned, or the 30-minute session lapsed). Release the
+// pending booking so its time slot frees up. -> payment_failed rather than
+// cancelled_* because no one deliberately cancelled it; the /bookings/
+// confirmed page and status badge already handle this state.
+async function handleCheckoutExpired(
+  admin: ReturnType<typeof createAdminClient>,
+  session: Stripe.Checkout.Session
+) {
+  const bookingId = session.metadata?.booking_id;
+  if (!bookingId || session.metadata?.type !== "booking") return;
+  await admin
+    .from("bookings")
+    .update({ status: "payment_failed" })
+    .eq("id", bookingId)
+    .eq("status", "pending");
 }
 
 async function handlePaymentFailed(

@@ -202,6 +202,7 @@ export interface Database {
           braider_payout_pence: number;
           stripe_payment_intent_id: string | null; // null until checkout.session.completed
           stripe_transfer_id: string | null;
+          stripe_checkout_session_id: string | null;
           sessions_allocated: number;
           sessions_used: number;
           cancellation_reason: string | null;
@@ -232,12 +233,14 @@ export interface Database {
           commission_pence: number;
           braider_payout_pence: number;
           status: "pending";
+          stripe_checkout_session_id?: string | null;
         };
         Update: Partial<{
           status: BookingStatus;
           appointment_at: string;
           stripe_payment_intent_id: string | null;
           stripe_transfer_id: string | null;
+          stripe_checkout_session_id: string | null;
           cancellation_reason: string | null;
           completed_at: string | null;
           pending_reschedule_at: string | null;

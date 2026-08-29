@@ -56,7 +56,8 @@ export default function BookingDetailPage() {
   const hours = hoursUntil(booking.appointment_at);
   const appointmentPassed = hours <= 0;
 
-  const canCancel = booking.status === "confirmed";
+  const canCancel = booking.status === "confirmed" || booking.status === "pending";
+  const isPending = booking.status === "pending";
   const canReschedule =
     booking.status === "confirmed" && !booking.pending_reschedule_at && !appointmentPassed;
   const canComplete = isBraiderViewer && booking.status === "confirmed" && appointmentPassed;
@@ -113,6 +114,12 @@ export default function BookingDetailPage() {
           <p className="mt-4 rounded bg-success-bg px-3 py-2 text-sm text-success">
             BraidCare opens {formatDateTime(booking.braidcare_live_at)} (24h before your
             appointment).
+          </p>
+        )}
+        {isPending && !isBraiderViewer && (
+          <p className="bg-mist/50 mt-4 rounded px-3 py-2 text-sm text-slate">
+            Payment wasn&rsquo;t completed, so this slot isn&rsquo;t confirmed yet. Cancel it below
+            if you no longer want it.
           </p>
         )}
         {booking.cancellation_reason && (
@@ -224,14 +231,18 @@ export default function BookingDetailPage() {
         <Card className="mt-4">
           <h3 className="font-medium text-plum">Cancel this booking?</h3>
           <p className="mt-1 text-sm text-slate">
-            {!isBraiderViewer && (
-              <>
-                Based on the notice period, your estimated refund is{" "}
-                <span className="font-medium text-plum">
-                  {formatMoney(refundEstimate(hours, booking.amount_pence))}
-                </span>{" "}
-                of {formatMoney(booking.amount_pence)}.{" "}
-              </>
+            {isPending ? (
+              <>This booking hasn&rsquo;t been paid for. Cancelling frees up the time slot. </>
+            ) : (
+              !isBraiderViewer && (
+                <>
+                  Based on the notice period, your estimated refund is{" "}
+                  <span className="font-medium text-plum">
+                    {formatMoney(refundEstimate(hours, booking.amount_pence))}
+                  </span>{" "}
+                  of {formatMoney(booking.amount_pence)}.{" "}
+                </>
+              )
             )}
             This can&rsquo;t be undone.
           </p>

@@ -57,6 +57,8 @@ export interface Database {
           stripe_customer_id: string | null;
           braidcare_client_subscribed: boolean;
           is_suspended: boolean;
+          referral_code: string;
+          referred_by: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -67,6 +69,7 @@ export interface Database {
           id: string;
           role: Role;
           full_name: string;
+          referred_by?: string | null;
         };
         Update: Partial<{
           display_name: string | null;

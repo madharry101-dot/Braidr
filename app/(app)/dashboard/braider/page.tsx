@@ -11,6 +11,7 @@ import { LoadingBlock } from "@/components/ui/spinner";
 import { TagInput } from "@/components/ui/tag-input";
 import { StatusBadge } from "@/components/booking/status-badge";
 import { SetupChecklist } from "@/components/braider/setup-checklist";
+import { ReferralCard } from "@/components/referral/referral-card";
 import { useBraiderMe, useCreateBraiderProfile } from "@/lib/hooks/braider-dashboard";
 import { useBookings } from "@/lib/hooks/braidmatch";
 import { useSession } from "@/lib/hooks/use-session";
@@ -191,6 +192,10 @@ export default function BraiderDashboard() {
             </Card>
           </Link>
         ))}
+      </section>
+
+      <section className="mt-4">
+        <ReferralCard role="braider" />
       </section>
     </div>
   );

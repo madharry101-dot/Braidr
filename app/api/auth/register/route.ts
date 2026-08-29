@@ -21,16 +21,23 @@ export async function POST(request: NextRequest) {
 
   const parsed = validate(registerSchema, await request.json());
   if (!parsed.ok) return parsed.response;
-  const { email, password, full_name, role, marketing_opt_in } = parsed.data;
+  const { email, password, full_name, role, marketing_opt_in, referred_by } = parsed.data;
 
   const supabase = await createClient();
 
-  // role/full_name flow into raw_user_meta_data, read by the
-  // handle_new_user() trigger to populate public.profiles (FR-AUTH-01.4).
+  // role/full_name/referred_by flow into raw_user_meta_data, read by the
+  // handle_new_user() trigger to populate public.profiles (FR-AUTH-01.4 /
+  // FR-REF-01.4).
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { role, full_name } },
+    options: {
+      data: {
+        role,
+        full_name,
+        ...(referred_by ? { referred_by: referred_by.toUpperCase() } : {}),
+      },
+    },
   });
 
   if (error) {

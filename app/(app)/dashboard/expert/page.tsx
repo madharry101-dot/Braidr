@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { LoadingBlock } from "@/components/ui/spinner";
 import { ExpertProfileForm } from "@/components/expert/expert-profile-form";
+import { ReferralCard } from "@/components/referral/referral-card";
 import { useMyExpertProfile, useExpertReferrals } from "@/lib/hooks/expert";
 import { useSession } from "@/lib/hooks/use-session";
 import { formatMoney } from "@/lib/format";
@@ -96,6 +97,8 @@ export default function ExpertDashboard() {
           </dd>
         </dl>
       </Card>
+
+      <ReferralCard role="expert" />
     </div>
   );
 }

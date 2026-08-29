@@ -10,6 +10,7 @@ import { Alert } from "@/components/ui/alert";
 import { ConsentFields } from "@/components/auth/consent-fields";
 import { ContinueWithGoogle, OrDivider } from "@/components/auth/continue-with-google";
 import { api, ApiError } from "@/lib/api/client";
+import { readReferralCookie } from "@/lib/referral/cookie";
 import { DASHBOARD_PATH, type SessionUser } from "@/lib/hooks/use-session";
 
 type RoleOption = "client" | "braider" | "expert";
@@ -54,6 +55,7 @@ export default function RegisterPage() {
           role,
           accepted_terms: true,
           marketing_opt_in: marketingOptIn,
+          referred_by: readReferralCookie(),
         }
       );
       if (res.email_confirmation_required) {

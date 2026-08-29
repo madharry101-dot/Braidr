@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { ConsentFields } from "@/components/auth/consent-fields";
 import { api, ApiError } from "@/lib/api/client";
+import { readReferralCookie } from "@/lib/referral/cookie";
 import { useSession, type SessionUser } from "@/lib/hooks/use-session";
 
 type RoleOption = "client" | "braider" | "expert";
@@ -53,6 +54,7 @@ export default function CompleteRegistrationPage() {
         role,
         accepted_terms: true,
         marketing_opt_in: marketingOptIn,
+        referred_by: readReferralCookie(),
       });
       const fresh = await api.get<SessionUser>("/auth/session");
       queryClient.setQueryData(["session"], fresh);

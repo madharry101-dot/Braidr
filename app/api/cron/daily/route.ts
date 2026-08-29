@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { runReleasePayouts } from "@/lib/cron/release-payouts";
 import { runRetryBraidcareAnalysis } from "@/lib/cron/retry-braidcare-analysis";
 import { runHmrcDeadlineReminders } from "@/lib/cron/hmrc-deadline-reminders";
+import { runPurgeBraidcarePhotos } from "@/lib/cron/purge-braidcare-photos";
 import { ok, fail } from "@/lib/api/response";
 
 // GET /api/cron/daily — the only cron actually registered in vercel.json.
@@ -27,6 +28,7 @@ export async function GET(request: Request) {
     release_payouts: () => runReleasePayouts(admin),
     retry_braidcare_analysis: () => runRetryBraidcareAnalysis(admin),
     hmrc_deadline_reminders: () => runHmrcDeadlineReminders(admin),
+    purge_braidcare_photos: () => runPurgeBraidcarePhotos(admin),
   })) {
     try {
       results[name] = await task();

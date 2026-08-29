@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
   const parsed = validate(completeOAuthRegistrationSchema, await request.json());
   if (!parsed.ok) return parsed.response;
-  const { role, marketing_opt_in } = parsed.data;
+  const { role, marketing_opt_in, referred_by } = parsed.data;
 
   const fullName =
     (user.user_metadata?.full_name as string | undefined) ??
@@ -39,9 +39,21 @@ export async function POST(request: NextRequest) {
     "";
 
   const admin = createAdminClient();
+
+  // Attribute the referral only if the code actually exists (FR-REF-01.4).
+  let referredBy: string | null = null;
+  if (referred_by) {
+    const { data: referrer } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("referral_code", referred_by.toUpperCase())
+      .maybeSingle();
+    if (referrer && referrer.id !== user.id) referredBy = referred_by.toUpperCase();
+  }
+
   const { error: insertError } = await admin
     .from("profiles")
-    .insert({ id: user.id, role, full_name: fullName });
+    .insert({ id: user.id, role, full_name: fullName, referred_by: referredBy });
   if (insertError) {
     console.error("[complete-oauth] profile insert failed", insertError);
     return fail("INTERNAL_ERROR", "Could not finish setting up your account.", 500);

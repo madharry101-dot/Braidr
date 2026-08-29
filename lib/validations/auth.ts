@@ -13,6 +13,9 @@ export const registerSchema = z.object({
     .refine((v) => v === true, "You must accept the Terms and Privacy Policy to register."),
   // GDPR-02: separate, unchecked by default, never a condition of registering.
   marketing_opt_in: z.boolean().default(false),
+  // From the /r/{code} cookie (PRD v2.0 FR-REF-01.4). An unknown code is
+  // silently dropped by the handle_new_user() trigger.
+  referred_by: z.string().trim().min(1).max(16).optional(),
 });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
@@ -23,6 +26,7 @@ export const completeOAuthRegistrationSchema = z.object({
     .boolean()
     .refine((v) => v === true, "You must accept the Terms and Privacy Policy to continue."),
   marketing_opt_in: z.boolean().default(false),
+  referred_by: z.string().trim().min(1).max(16).optional(),
 });
 export type CompleteOAuthRegistrationInput = z.infer<typeof completeOAuthRegistrationSchema>;
 

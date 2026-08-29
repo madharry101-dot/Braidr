@@ -529,7 +529,10 @@ export interface Database {
           fulfilled_at: string | null;
         };
         Insert: { user_id: string; status?: "pending" | "fulfilled" | "cancelled" };
-        Update: Partial<{ status: "pending" | "fulfilled" | "cancelled"; fulfilled_at: string | null }>;
+        Update: Partial<{
+          status: "pending" | "fulfilled" | "cancelled";
+          fulfilled_at: string | null;
+        }>;
         Relationships: [];
       };
       consent_events: {

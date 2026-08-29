@@ -23,7 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const role = session?.profile?.role;
   const items: NavItem[] = role ? NAV_BY_ROLE[role] : [];
 
-  // Client-side guard for app routes middleware doesn't cover (/account,
+  // Client-side guard for app routes middleware doesn't cover (/settings,
   // /bookings, /braiders, /braidcare). Middleware still owns /dashboard/*
   // and /admin server-side.
   useEffect(() => {

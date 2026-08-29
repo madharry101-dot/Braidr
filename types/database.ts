@@ -59,6 +59,9 @@ export interface Database {
           is_suspended: boolean;
           referral_code: string;
           referred_by: string | null;
+          notification_preferences: Record<string, boolean>;
+          date_of_birth: string | null;
+          hair_type: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -78,6 +81,9 @@ export interface Database {
           city: string | null;
           stripe_customer_id: string | null;
           braidcare_client_subscribed: boolean;
+          notification_preferences: Record<string, boolean>;
+          date_of_birth: string | null;
+          hair_type: string | null;
           // full_name is not owner-editable in any route today — it's only
           // in this type for the admin anonymisation path (DELETE
           // /api/admin/users/:id), which overwrites it with "Deleted User".

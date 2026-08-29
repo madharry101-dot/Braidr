@@ -24,7 +24,7 @@ const CLIENT: NavItem[] = [
   { href: "/braiders", label: "Search", icon: SearchIcon },
   { href: "/bookings", label: "Bookings", icon: CalendarIcon },
   { href: "/braidcare", label: "BraidCare", icon: HeartPulseIcon },
-  { href: "/account", label: "Account", icon: UserIcon },
+  { href: "/settings", label: "Settings", icon: UserIcon },
 ];
 
 // Hours isn't in the bottom bar — it's set once during onboarding and
@@ -34,13 +34,13 @@ const BRAIDER: NavItem[] = [
   { href: "/dashboard/braider/bookings", label: "Bookings", icon: CalendarIcon },
   { href: "/dashboard/braider/braidcare", label: "BraidCare", icon: HeartPulseIcon },
   { href: "/dashboard/braider/services", label: "Services", icon: BriefcaseIcon },
-  { href: "/account", label: "Account", icon: UserIcon },
+  { href: "/settings", label: "Settings", icon: UserIcon },
 ];
 
 const EXPERT: NavItem[] = [
   { href: "/dashboard/expert", label: "Home", icon: HomeIcon },
   { href: "/dashboard/expert/referrals", label: "Referrals", icon: UsersIcon },
-  { href: "/account", label: "Account", icon: UserIcon },
+  { href: "/settings", label: "Settings", icon: UserIcon },
 ];
 
 const ADMIN: NavItem[] = [

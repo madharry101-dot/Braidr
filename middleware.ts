@@ -28,6 +28,11 @@ export async function middleware(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
+  // /account was folded into /settings in v2 (PRD §4.10).
+  if (pathname === "/account") {
+    return NextResponse.redirect(new URL("/settings", request.url));
+  }
+
   const isDashboardIndex = pathname === "/dashboard";
   const gate = ROLE_GATED_PREFIXES.find(({ prefix }) => pathname.startsWith(prefix));
 

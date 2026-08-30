@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { useSettingsProfile, useUpdateSettingsProfile } from "@/lib/hooks/settings";
 import { UK_CITIES } from "@/lib/types/braidmatch";
-
-const HAIR_TYPES = ["Not set", "Type 1", "Type 2", "Type 3", "Type 4", "Prefer not to say"];
+import { HairTypePicker } from "@/components/hair/hair-type-picker";
+import type { HairTypeValue } from "@/lib/hair/textures";
 
 export function ProfileSection() {
   const { data, isLoading } = useSettingsProfile();
@@ -18,7 +18,7 @@ export function ProfileSection() {
   const [phone, setPhone] = useState("");
   const [city, setCity] = useState("");
   const [dob, setDob] = useState("");
-  const [hairType, setHairType] = useState("Not set");
+  const [hairType, setHairType] = useState<HairTypeValue | null>(null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +28,7 @@ export function ProfileSection() {
     setPhone(data.phone ?? "");
     setCity(data.city ?? "");
     setDob(data.date_of_birth ?? "");
-    setHairType(data.hair_type ?? "Not set");
+    setHairType(data.hair_type ?? null);
   }, [data]);
 
   async function save(e: React.FormEvent) {
@@ -41,7 +41,7 @@ export function ProfileSection() {
         phone: phone.trim() || null,
         city: city || null,
         date_of_birth: dob || null,
-        hair_type: hairType === "Not set" ? null : hairType,
+        hair_type: hairType,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -92,17 +92,22 @@ export function ProfileSection() {
               value={dob}
               onChange={(e) => setDob(e.target.value)}
             />
-            <Select
-              label="Hair type (optional)"
-              value={hairType}
-              onChange={(e) => setHairType(e.target.value)}
-            >
-              {HAIR_TYPES.map((h) => (
-                <option key={h} value={h}>
-                  {h}
-                </option>
-              ))}
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-plum">Hair type (optional)</span>
+              <HairTypePicker
+                value={hairType}
+                onChange={setHairType}
+                confirmation={
+                  data.hair_type_source === "braider_confirmed" && data.hair_type_confirmed_at
+                    ? {
+                        by_name: data.hair_type_confirmed_by_name ?? "your braider",
+                        at: data.hair_type_confirmed_at,
+                        value: data.hair_type,
+                      }
+                    : null
+                }
+              />
+            </div>
           </>
         )}
         <Button type="submit" size="sm" loading={update.isPending} className="sm:!w-auto">

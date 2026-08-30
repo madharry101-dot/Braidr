@@ -1,14 +1,25 @@
 import { z } from "zod";
+import { HAIR_TEXTURES } from "@/lib/hair/textures";
 
 export const braiderSearchSchema = z.object({
   city: z.string().trim().optional(),
   category: z.enum(["braids", "locs", "cornrows", "twists", "other"]).optional(),
   style: z.string().trim().optional(), // matched against specialisations[]
+  // Plain-language hair texture (Part 1). Filters to braiders VERIFIED for
+  // that texture — see the search route.
+  texture: z.enum(HAIR_TEXTURES).optional(),
   price_max_pence: z.coerce.number().int().positive().optional(),
   braidcare_only: z.coerce.boolean().optional(),
   verified_only: z.coerce.boolean().optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
+
+// PUT /api/braiders/me/textures — the full set of textures the braider
+// declares. The route diffs this against existing rows.
+export const setTextureSpecialisationsSchema = z.object({
+  textures: z.array(z.enum(HAIR_TEXTURES)).max(4),
+});
+export type SetTextureSpecialisationsInput = z.infer<typeof setTextureSpecialisationsSchema>;
 export type BraiderSearchInput = z.infer<typeof braiderSearchSchema>;
 
 export const updateBraiderProfileSchema = z.object({

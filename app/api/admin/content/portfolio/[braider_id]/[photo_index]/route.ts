@@ -30,29 +30,31 @@ export async function DELETE(
   const admin = createAdminClient();
   const { data: braiderProfile } = await admin
     .from("braider_profiles")
-    .select("user_id, portfolio_photos")
+    .select("user_id")
     .eq("id", params.braider_id)
     .single();
   if (!braiderProfile) return fail("NOT_FOUND", "Braider profile not found.", 404);
-  if (index >= braiderProfile.portfolio_photos.length) {
-    return fail("NOT_FOUND", "No photo at that index.", 404);
-  }
 
-  const photos = [...braiderProfile.portfolio_photos];
-  const [removedPath] = photos.splice(index, 1);
+  // photo_index is a 0-based position into the braider's portfolio ordered
+  // the same way it renders (sort_order). Kept index-addressed because this
+  // is a manual admin form, not a UI that knows row ids.
+  const { data: photos } = await admin
+    .from("braider_portfolio_photos")
+    .select("id, storage_path")
+    .eq("braider_id", params.braider_id)
+    .order("sort_order", { ascending: true });
+  const target = (photos ?? [])[index];
+  if (!target) return fail("NOT_FOUND", "No photo at that index.", 404);
 
-  await admin.storage.from("portfolio-photos").remove([removedPath]);
-  await admin
-    .from("braider_profiles")
-    .update({ portfolio_photos: photos })
-    .eq("id", params.braider_id);
+  await admin.from("braider_portfolio_photos").delete().eq("id", target.id);
+  await admin.storage.from("portfolio-photos").remove([target.storage_path]);
   await admin.from("content_moderation_log").insert({
     admin_id: user.id,
     target_type: "portfolio_photo",
     target_user_id: braiderProfile.user_id,
-    removed_path: removedPath,
+    removed_path: target.storage_path,
     reason: parsed.data.reason,
   });
 
-  return ok({ portfolio_photos: photos });
+  return ok({ removed_path: target.storage_path });
 }

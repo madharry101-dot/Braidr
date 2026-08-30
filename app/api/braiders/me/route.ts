@@ -15,39 +15,62 @@ export async function GET() {
   } = await supabase.auth.getUser();
   if (!user) return fail("UNAUTHENTICATED", "Not signed in.", 401);
 
-  const { data: profile } = await supabase
+  const { data: profileRow } = await supabase
     .from("braider_profiles")
     .select(
-      "id, bio, specialisations, city, area, years_experience, is_verified, is_active, braidcare_badge_active, braidcare_subscribed, braidr_pro_subscribed, stripe_account_id, stripe_charges_enabled, portfolio_photos, avg_rating, total_reviews, verification_note"
+      "id, bio, specialisations, city, area, years_experience, is_verified, is_active, braidcare_badge_active, braidcare_subscribed, braidr_pro_subscribed, stripe_account_id, stripe_charges_enabled, avg_rating, total_reviews, verification_note"
     )
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (!profile) {
+  if (!profileRow) {
     return ok({ profile: null, services: [], availability_rules: [], blocked_dates: [] });
   }
 
-  const [{ data: services }, { data: rules }, { data: blocked }] = await Promise.all([
+  const [
+    { data: photos },
+    { data: textures },
+    { data: services },
+    { data: rules },
+    { data: blocked },
+  ] = await Promise.all([
+    supabase
+      .from("braider_portfolio_photos")
+      .select("id, storage_path, texture, sort_order")
+      .eq("braider_id", profileRow.id)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("braider_texture_specialisations")
+      .select("texture, is_verified")
+      .eq("braider_id", profileRow.id),
     supabase
       .from("services")
       .select("id, name, category, price_from, price_to, duration_mins, description, is_active")
-      .eq("braider_id", profile.id)
+      .eq("braider_id", profileRow.id)
       .eq("is_active", true)
       .order("created_at", { ascending: true }),
     supabase
       .from("braider_availability_rules")
       .select("id, day_of_week, start_time, end_time")
-      .eq("braider_id", profile.id),
+      .eq("braider_id", profileRow.id),
     supabase
       .from("braider_blocked_dates")
       .select("id, blocked_date, reason")
-      .eq("braider_id", profile.id)
+      .eq("braider_id", profileRow.id)
       .gte("blocked_date", new Date().toISOString().slice(0, 10))
       .order("blocked_date", { ascending: true }),
   ]);
 
   return ok({
-    profile,
+    profile: {
+      ...profileRow,
+      portfolio_photos: (photos ?? []).map((p) => ({
+        id: p.id,
+        storage_path: p.storage_path,
+        texture: p.texture,
+      })),
+      texture_specialisations: textures ?? [],
+    },
     services: services ?? [],
     availability_rules: rules ?? [],
     blocked_dates: blocked ?? [],

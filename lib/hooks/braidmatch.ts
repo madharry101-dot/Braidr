@@ -3,10 +3,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import type { BraiderCard, BraiderDetail, Booking, BookingDetail } from "@/lib/types/braidmatch";
+import type { HairTexture } from "@/lib/hair/textures";
 
 export type BraiderFilters = {
   city?: string;
   style?: string;
+  /** Plain-language hair texture — matches braiders VERIFIED for it. */
+  texture?: HairTexture;
   price_max_pence?: number;
   braidcare_only?: boolean;
   verified_only?: boolean;
@@ -16,6 +19,7 @@ export function useBraiderSearch(filters: BraiderFilters) {
   const qs = new URLSearchParams();
   if (filters.city) qs.set("city", filters.city);
   if (filters.style) qs.set("style", filters.style);
+  if (filters.texture) qs.set("texture", filters.texture);
   if (filters.price_max_pence) qs.set("price_max_pence", String(filters.price_max_pence));
   if (filters.braidcare_only) qs.set("braidcare_only", "true");
   if (filters.verified_only) qs.set("verified_only", "true");
@@ -124,5 +128,17 @@ export function useCompleteBooking(id: string) {
       qc.invalidateQueries({ queryKey: ["booking", id] });
       qc.invalidateQueries({ queryKey: ["bookings"] });
     },
+  });
+}
+
+/** Braider's optional post-appointment hair-type confirmation (Part 1). */
+export function useConfirmClientHairType(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (hair_type: string) =>
+      api.post<{ hair_type: string; source: string }>(`/bookings/${id}/confirm-hair-type`, {
+        hair_type,
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["booking", id] }),
   });
 }

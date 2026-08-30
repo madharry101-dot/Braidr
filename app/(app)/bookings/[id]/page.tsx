@@ -10,6 +10,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { LoadingBlock } from "@/components/ui/spinner";
 import { StatusBadge } from "@/components/booking/status-badge";
+import { ConfirmHairTypeCard } from "@/components/booking/confirm-hair-type-card";
 import {
   useBooking,
   useCancelBooking,
@@ -61,6 +62,13 @@ export default function BookingDetailPage() {
   const canReschedule =
     booking.status === "confirmed" && !booking.pending_reschedule_at && !appointmentPassed;
   const canComplete = isBraiderViewer && booking.status === "confirmed" && appointmentPassed;
+  // Part 1 — post-appointment hair-type step. Offered once the appointment
+  // has actually happened, and never blocking: it sits below the actions
+  // and "Mark as completed" works whether or not the braider uses it.
+  const canConfirmHairType =
+    isBraiderViewer &&
+    appointmentPassed &&
+    (booking.status === "confirmed" || booking.status === "completed");
   const awaitingMyRescheduleConfirm =
     Boolean(booking.pending_reschedule_at) &&
     booking.reschedule_requested_by !== myUserId &&
@@ -194,6 +202,18 @@ export default function BookingDetailPage() {
               Cancel booking
             </Button>
           )}
+        </div>
+      )}
+
+      {/* Post-appointment: confirm or update the client's hair type. Optional. */}
+      {canConfirmHairType && (
+        <div className="mt-4">
+          <ConfirmHairTypeCard
+            bookingId={booking.id}
+            clientName={booking.client_name ?? "this client"}
+            clientHairType={booking.client_hair_type ?? null}
+            alreadyConfirmed={booking.client_hair_type_source === "braider_confirmed"}
+          />
         </div>
       )}
 

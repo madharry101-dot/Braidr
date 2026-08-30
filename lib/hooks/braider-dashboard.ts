@@ -109,8 +109,32 @@ export function useUnblockDate(braiderId: string) {
 export function useDeletePortfolioPhoto(braiderId: string) {
   const invalidate = useInvalidateMe();
   return useMutation({
-    mutationFn: (index: number) =>
-      api.del<{ portfolio_photos: string[] }>(`/braiders/${braiderId}/portfolio-photos/${index}`),
+    mutationFn: (photoId: string) =>
+      api.del<{ deleted: boolean }>(`/braiders/${braiderId}/portfolio-photos/${photoId}`),
+    onSuccess: invalidate,
+  });
+}
+
+export function useTagPortfolioPhoto(braiderId: string) {
+  const invalidate = useInvalidateMe();
+  return useMutation({
+    mutationFn: ({ photoId, texture }: { photoId: string; texture: string | null }) =>
+      api.patch<{ id: string; texture: string | null }>(
+        `/braiders/${braiderId}/portfolio-photos/${photoId}`,
+        { texture }
+      ),
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetTextureSpecialisations() {
+  const invalidate = useInvalidateMe();
+  return useMutation({
+    mutationFn: (textures: string[]) =>
+      api.put<{ texture_specialisations: { texture: string; is_verified: boolean }[] }>(
+        "/braiders/me/textures",
+        { textures }
+      ),
     onSuccess: invalidate,
   });
 }

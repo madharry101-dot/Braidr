@@ -4,23 +4,30 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 import { TagInput } from "@/components/ui/tag-input";
 import { RequireBraiderProfile } from "@/components/braider/require-profile";
-import { useUpdateBraiderProfile, useDeletePortfolioPhoto } from "@/lib/hooks/braider-dashboard";
+import { TextureSpecialisations } from "@/components/braider/texture-specialisations";
+import {
+  useUpdateBraiderProfile,
+  useDeletePortfolioPhoto,
+  useTagPortfolioPhoto,
+} from "@/lib/hooks/braider-dashboard";
 import { ApiError, type ApiEnvelope } from "@/lib/api/client";
 import { publicStorageUrl } from "@/lib/storage";
 import { STYLE_OPTIONS, UK_CITIES, type MyBraiderProfile } from "@/lib/types/braidmatch";
+import { HAIR_TEXTURES, TEXTURE_META, isHairTexture } from "@/lib/hair/textures";
 
 const MAX_PHOTOS = 12;
 
 function ProfileForm({ profile }: { profile: MyBraiderProfile }) {
   const update = useUpdateBraiderProfile(profile.id);
   const deletePhoto = useDeletePortfolioPhoto(profile.id);
+  const tagPhoto = useTagPortfolioPhoto(profile.id);
   const qc = useQueryClient();
 
   const [bio, setBio] = useState(profile.bio ?? "");
@@ -142,12 +149,28 @@ function ProfileForm({ profile }: { profile: MyBraiderProfile }) {
       </Card>
 
       <Card>
+        <CardTitle className="text-lg">Textures you specialise in</CardTitle>
+        <div className="mt-2">
+          <TextureSpecialisations
+            specs={profile.texture_specialisations}
+            taggedTextures={profile.portfolio_photos
+              .map((p) => p.texture)
+              .filter((t): t is NonNullable<typeof t> => t !== null)}
+          />
+        </div>
+      </Card>
+
+      <Card>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg text-plum">Portfolio</h2>
           <span className="text-sm text-slate">
             {profile.portfolio_photos.length}/{MAX_PHOTOS}
           </span>
         </div>
+        <p className="mt-1 text-sm text-slate">
+          Tag each photo with the texture you worked on — that&rsquo;s what verifies your
+          specialisations.
+        </p>
 
         {uploadError && (
           <Alert tone="error" className="mt-3">
@@ -156,27 +179,45 @@ function ProfileForm({ profile }: { profile: MyBraiderProfile }) {
         )}
 
         {profile.portfolio_photos.length > 0 && (
-          <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
-            {profile.portfolio_photos.map((path, i) => (
-              <div
-                key={path}
-                className="group relative aspect-square overflow-hidden rounded-lg bg-mist"
-              >
-                <Image
-                  src={publicStorageUrl("portfolio-photos", path)}
-                  alt={`Portfolio ${i + 1}`}
-                  fill
-                  sizes="(max-width: 768px) 33vw, 25vw"
-                  className="object-cover"
-                />
-                <button
-                  type="button"
-                  onClick={() => deletePhoto.mutate(i)}
-                  aria-label={`Remove photo ${i + 1}`}
-                  className="bg-plum/80 absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full text-sm text-white"
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {profile.portfolio_photos.map((photo, i) => (
+              <div key={photo.id} className="flex flex-col gap-1.5">
+                <div className="relative aspect-square overflow-hidden rounded-lg bg-mist">
+                  <Image
+                    src={publicStorageUrl("portfolio-photos", photo.storage_path)}
+                    alt={`Portfolio ${i + 1}`}
+                    fill
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    className="object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => deletePhoto.mutate(photo.id)}
+                    aria-label={`Remove photo ${i + 1}`}
+                    className="bg-plum/80 absolute right-1 top-1 flex h-7 w-7 items-center justify-center rounded-full text-sm text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+                <select
+                  aria-label={`Texture shown in photo ${i + 1}`}
+                  value={photo.texture ?? ""}
+                  disabled={tagPhoto.isPending}
+                  onChange={(e) =>
+                    tagPhoto.mutate({
+                      photoId: photo.id,
+                      texture: isHairTexture(e.target.value) ? e.target.value : null,
+                    })
+                  }
+                  className="min-h-[36px] w-full rounded border border-mist bg-white px-2 text-xs text-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal"
                 >
-                  ×
-                </button>
+                  <option value="">Untagged</option>
+                  {HAIR_TEXTURES.map((t) => (
+                    <option key={t} value={t}>
+                      {TEXTURE_META[t].label}
+                    </option>
+                  ))}
+                </select>
               </div>
             ))}
           </div>

@@ -13,6 +13,16 @@ export function buildSteps(me: BraiderMe): Step[] {
       cta: "Edit profile",
     },
     {
+      // Part 1 — the texture specialisations step. "Done" means at least
+      // one is actually verified (has a tagged portfolio photo), not just
+      // declared — an unverified specialisation is invisible to clients, so
+      // declaring one on its own isn't real progress.
+      label: "Choose the textures you specialise in",
+      done: Boolean(p && p.texture_specialisations.some((s) => s.is_verified)),
+      href: "/dashboard/braider/profile",
+      cta: "Choose textures",
+    },
+    {
       label: "Add at least one service",
       done: me.services.length > 0,
       href: "/dashboard/braider/services",

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { LinkButton } from "@/components/ui/button";
 import { LoadingBlock } from "@/components/ui/spinner";
 import { Alert } from "@/components/ui/alert";
+import { TextureBadges } from "@/components/hair/texture-badges";
 import { useBraider } from "@/lib/hooks/braidmatch";
 import { publicStorageUrl } from "@/lib/storage";
 import { formatMoney, formatDuration, formatDate } from "@/lib/format";
@@ -64,6 +65,8 @@ export default function BraiderProfilePage() {
           ))}
         </div>
       )}
+
+      <TextureBadges textures={braider.verified_textures ?? []} />
 
       {/* Portfolio */}
       {braider.portfolio_photos && braider.portfolio_photos.length > 0 && (

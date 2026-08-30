@@ -2,15 +2,16 @@ import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ok, fail } from "@/lib/api/response";
+import { isHairTexture, type HairTexture } from "@/lib/hair/textures";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_PORTFOLIO_PHOTOS = 12;
 
-// POST /api/braiders/:id/portfolio-photos — not in the TRD's endpoint
-// table; PRD FR-MATCH-01.2 calls for portfolio photos but no upload path
-// existed until now (see the migration note). Owner only, multipart,
-// field name "photos" (repeatable).
+// POST /api/braiders/:id/portfolio-photos — owner only, multipart, field
+// name "photos" (repeatable). Optional "texture" field applies one texture
+// tag to every photo in this batch (Part 1 — texture-verified
+// specialisations). Rows land in braider_portfolio_photos.
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const supabase = await createClient();
   const {
@@ -20,19 +21,26 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
   const { data: braiderProfile } = await supabase
     .from("braider_profiles")
-    .select("id, portfolio_photos")
+    .select("id")
     .eq("id", params.id)
     .eq("user_id", user.id)
     .single();
   if (!braiderProfile)
     return fail("FORBIDDEN", "Braider profile not found or not owned by you.", 403);
 
+  const { count: existingCount } = await supabase
+    .from("braider_portfolio_photos")
+    .select("id", { count: "exact", head: true })
+    .eq("braider_id", params.id);
+
   const formData = await request.formData();
   const files = formData.getAll("photos").filter((f): f is File => f instanceof File);
+  const textureRaw = formData.get("texture");
+  const texture = typeof textureRaw === "string" && isHairTexture(textureRaw) ? textureRaw : null;
 
   if (files.length === 0)
     return fail("VALIDATION_ERROR", "At least one photo is required.", 422, "photos");
-  if (braiderProfile.portfolio_photos.length + files.length > MAX_PORTFOLIO_PHOTOS) {
+  if ((existingCount ?? 0) + files.length > MAX_PORTFOLIO_PHOTOS) {
     return fail(
       "VALIDATION_ERROR",
       `A portfolio can have at most ${MAX_PORTFOLIO_PHOTOS} photos.`,
@@ -50,7 +58,12 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 
   const admin = createAdminClient();
-  const uploadedPaths: string[] = [];
+  const rows: {
+    braider_id: string;
+    storage_path: string;
+    texture: HairTexture | null;
+    sort_order: number;
+  }[] = [];
   for (const [index, file] of files.entries()) {
     const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
     const path = `${user.id}/${Date.now()}-${index}.${ext}`;
@@ -59,15 +72,16 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       .upload(path, await file.arrayBuffer(), { contentType: file.type });
     if (uploadError)
       return fail("INTERNAL_ERROR", `Failed to upload photo: ${uploadError.message}`, 500);
-    uploadedPaths.push(path);
+    rows.push({
+      braider_id: params.id,
+      storage_path: path,
+      texture,
+      sort_order: (existingCount ?? 0) + index,
+    });
   }
 
-  const updatedPhotos = [...braiderProfile.portfolio_photos, ...uploadedPaths];
-  const { error } = await supabase
-    .from("braider_profiles")
-    .update({ portfolio_photos: updatedPhotos })
-    .eq("id", params.id);
+  const { error } = await supabase.from("braider_portfolio_photos").insert(rows);
   if (error) return fail("INTERNAL_ERROR", "Failed to record uploaded photos.", 500);
 
-  return ok({ portfolio_photos: updatedPhotos }, 201);
+  return ok({ added: rows.length }, 201);
 }

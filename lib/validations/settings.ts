@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { HAIR_TEXTURES } from "@/lib/hair/textures";
 
 // PUT /api/settings/profile — the fields any role can edit about itself.
 // display_name/phone/city/avatar_url are shared; date_of_birth/hair_type
@@ -12,7 +13,8 @@ export const updateProfileSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD.")
     .nullish(),
-  hair_type: z.string().trim().max(40).nullish(),
+  // Plain-language texture vocabulary (Part 1). null = "not set".
+  hair_type: z.enum([...HAIR_TEXTURES, "prefer_not_to_say"]).nullish(),
 });
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 

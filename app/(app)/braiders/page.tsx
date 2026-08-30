@@ -10,6 +10,7 @@ import { BraiderCard } from "@/components/booking/braider-card";
 import { StyleMatchPanel } from "@/components/booking/style-match-panel";
 import { useBraiderSearch, type BraiderFilters } from "@/lib/hooks/braidmatch";
 import { STYLE_OPTIONS, UK_CITIES } from "@/lib/types/braidmatch";
+import { HAIR_TEXTURES, TEXTURE_META, isHairTexture } from "@/lib/hair/textures";
 
 const PRICE_BANDS = [
   { label: "Any price", value: "" },
@@ -23,9 +24,11 @@ function BraiderSearch() {
   const router = useRouter();
   const params = useSearchParams();
 
+  const textureParam = params.get("texture");
   const filters: BraiderFilters = {
     city: params.get("city") || undefined,
     style: params.get("style") || undefined,
+    texture: isHairTexture(textureParam) ? textureParam : undefined,
     price_max_pence: params.get("price_max_pence")
       ? Number(params.get("price_max_pence"))
       : undefined,
@@ -74,6 +77,19 @@ function BraiderSearch() {
           {STYLE_OPTIONS.map((s) => (
             <option key={s} value={s}>
               {s}
+            </option>
+          ))}
+        </Select>
+        <Select
+          label="Hair type"
+          hint="Shows braiders verified for that texture."
+          value={filters.texture ?? ""}
+          onChange={(e) => setParam("texture", e.target.value)}
+        >
+          <option value="">Any hair type</option>
+          {HAIR_TEXTURES.map((t) => (
+            <option key={t} value={t}>
+              {TEXTURE_META[t].label}
             </option>
           ))}
         </Select>

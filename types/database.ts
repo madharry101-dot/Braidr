@@ -5,6 +5,8 @@
 // one exists, regenerate this file from it and delete this comment; the
 // generated file is the source of truth from then on, not this one.
 
+import type { HairTexture, HairTypeValue } from "@/lib/hair/textures";
+
 export type Role = "client" | "braider" | "expert" | "admin";
 export type BookingStatus =
   | "pending"
@@ -61,7 +63,11 @@ export interface Database {
           referred_by: string | null;
           notification_preferences: Record<string, boolean>;
           date_of_birth: string | null;
-          hair_type: string | null;
+          hair_type: HairTypeValue | null;
+          hair_type_detail: string | null;
+          hair_type_source: "self" | "braider_confirmed";
+          hair_type_confirmed_by: string | null;
+          hair_type_confirmed_at: string | null;
           deleted_at: string | null;
           created_at: string;
           updated_at: string;
@@ -84,7 +90,15 @@ export interface Database {
           braidcare_client_subscribed: boolean;
           notification_preferences: Record<string, boolean>;
           date_of_birth: string | null;
-          hair_type: string | null;
+          hair_type: HairTypeValue | null;
+          hair_type_detail: string | null;
+          // Provenance columns. Owner (non-service) writes are constrained
+          // by prevent_profile_privileged_field_update(): only → 'self' /
+          // → null transitions are allowed. The service-role braider
+          // confirmation route sets the authoritative values.
+          hair_type_source: "self" | "braider_confirmed";
+          hair_type_confirmed_by: string | null;
+          hair_type_confirmed_at: string | null;
           deleted_at: string | null;
           // full_name is not owner-editable in any route today — it's only
           // in this type for the admin anonymisation path (DELETE
@@ -151,6 +165,49 @@ export interface Database {
           verification_note: string | null;
           avg_rating: number | null;
           total_reviews: number;
+        }>;
+        Relationships: [];
+      };
+      braider_texture_specialisations: {
+        Row: {
+          id: string;
+          braider_id: string;
+          texture: HairTexture;
+          is_verified: boolean;
+          verified_at: string | null;
+          created_at: string;
+        };
+        // Owner inserts/deletes rows to change their specialisations;
+        // is_verified/verified_at are trigger-maintained (no owner UPDATE
+        // policy), so they're not in Insert.
+        Insert: {
+          braider_id: string;
+          texture: HairTexture;
+        };
+        Update: Partial<{
+          is_verified: boolean;
+          verified_at: string | null;
+        }>;
+        Relationships: [];
+      };
+      braider_portfolio_photos: {
+        Row: {
+          id: string;
+          braider_id: string;
+          storage_path: string;
+          texture: HairTexture | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: {
+          braider_id: string;
+          storage_path: string;
+          texture?: HairTexture | null;
+          sort_order?: number;
+        };
+        Update: Partial<{
+          texture: HairTexture | null;
+          sort_order: number;
         }>;
         Relationships: [];
       };

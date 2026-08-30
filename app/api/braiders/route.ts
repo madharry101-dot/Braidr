@@ -15,7 +15,22 @@ export async function GET(request: NextRequest) {
 
   const parsed = validate(braiderSearchSchema, Object.fromEntries(request.nextUrl.searchParams));
   if (!parsed.ok) return parsed.response;
-  const { city, style, price_max_pence, braidcare_only, verified_only, limit } = parsed.data;
+  const { city, style, texture, price_max_pence, braidcare_only, verified_only, limit } =
+    parsed.data;
+
+  // Texture filter: restrict to braiders VERIFIED for that texture. Resolve
+  // the eligible braider ids first (own query — can't embed, empty
+  // Relationships).
+  let textureVerifiedIds: Set<string> | null = null;
+  if (texture) {
+    const { data: specRows } = await supabase
+      .from("braider_texture_specialisations")
+      .select("braider_id")
+      .eq("texture", texture)
+      .eq("is_verified", true);
+    textureVerifiedIds = new Set((specRows ?? []).map((r) => r.braider_id));
+    if (textureVerifiedIds.size === 0) return ok({ braiders: [] });
+  }
 
   let query = supabase
     .from("braider_profiles")
@@ -29,6 +44,7 @@ export async function GET(request: NextRequest) {
   if (style) query = query.contains("specialisations", [style]);
   if (braidcare_only) query = query.eq("braidcare_badge_active", true);
   if (verified_only) query = query.eq("is_verified", true);
+  if (textureVerifiedIds) query = query.in("id", [...textureVerifiedIds]);
 
   const { data: braiders, error } = await query;
   if (error) return fail("INTERNAL_ERROR", "Search failed.", 500);
@@ -59,13 +75,19 @@ export async function GET(request: NextRequest) {
   if (results.length > 0) {
     const braiderIds = results.map((b) => b.id);
     const userIds = results.map((b) => b.user_id);
-    const [{ data: profiles }, { data: services }] = await Promise.all([
+    const [{ data: profiles }, { data: services }, { data: verifiedTextures }] = await Promise.all([
       supabase.from("profiles").select("id, display_name, full_name, avatar_url").in("id", userIds),
       supabase
         .from("services")
         .select("braider_id, price_from")
         .in("braider_id", braiderIds)
         .eq("is_active", true),
+      // Verified specialisations only — unverified ones are never shown to clients.
+      supabase
+        .from("braider_texture_specialisations")
+        .select("braider_id, texture")
+        .in("braider_id", braiderIds)
+        .eq("is_verified", true),
     ]);
 
     const profileByUser = new Map((profiles ?? []).map((p) => [p.id, p]));
@@ -76,6 +98,12 @@ export async function GET(request: NextRequest) {
         minPriceByBraider.set(s.braider_id, s.price_from);
       }
     }
+    const texturesByBraider = new Map<string, string[]>();
+    for (const t of verifiedTextures ?? []) {
+      const arr = texturesByBraider.get(t.braider_id) ?? [];
+      arr.push(t.texture);
+      texturesByBraider.set(t.braider_id, arr);
+    }
 
     const hydrated = results.map((b) => {
       const p = profileByUser.get(b.user_id);
@@ -84,6 +112,7 @@ export async function GET(request: NextRequest) {
         name: p?.display_name ?? p?.full_name ?? "Braidr braider",
         avatar_url: p?.avatar_url ?? null,
         price_from_pence: minPriceByBraider.get(b.id) ?? null,
+        verified_textures: texturesByBraider.get(b.id) ?? [],
       };
     });
     return ok({ braiders: hydrated });

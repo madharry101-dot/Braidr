@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/booking/avatar";
 import { StarRating } from "@/components/booking/star-rating";
 import { Badge } from "@/components/ui/badge";
+import { TextureBadges } from "@/components/hair/texture-badges";
 import { formatMoney } from "@/lib/format";
 import type { BraiderCard as BraiderCardData } from "@/lib/types/braidmatch";
 
@@ -38,6 +39,8 @@ export function BraiderCard({ braider }: { braider: BraiderCardData }) {
           )}
         </div>
       )}
+
+      <TextureBadges textures={braider.verified_textures ?? []} />
 
       <div className="mt-auto flex items-center justify-between pt-1">
         <span className="text-sm text-slate">

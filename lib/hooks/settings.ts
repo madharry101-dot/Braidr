@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api/client";
 import type { NotificationEvent } from "@/lib/settings/notifications";
 import type { Role } from "@/types/database";
+import type { HairTypeValue } from "@/lib/hair/textures";
 
 export type SettingsProfile = {
   role: Role;
@@ -13,7 +14,12 @@ export type SettingsProfile = {
   phone: string | null;
   city: string | null;
   date_of_birth: string | null;
-  hair_type: string | null;
+  hair_type: HairTypeValue | null;
+  hair_type_detail: string | null;
+  hair_type_source: "self" | "braider_confirmed";
+  hair_type_confirmed_by: string | null;
+  hair_type_confirmed_at: string | null;
+  hair_type_confirmed_by_name: string | null;
   referral_code: string;
   email: string | undefined;
 };

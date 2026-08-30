@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: braider } = await supabase
     .from("braider_profiles")
     .select(
-      "id, user_id, bio, specialisations, city, area, years_experience, is_verified, braidcare_badge_active, avg_rating, total_reviews, portfolio_photos"
+      "id, user_id, bio, specialisations, city, area, years_experience, is_verified, braidcare_badge_active, avg_rating, total_reviews"
     )
     .eq("id", params.id)
     .single();
@@ -27,25 +27,39 @@ export async function GET(request: Request, { params }: { params: { id: string }
     .eq("id", braider.user_id)
     .single();
 
-  const [{ data: services }, { data: reviews }] = await Promise.all([
-    supabase
-      .from("services")
-      .select("id, name, category, price_from, price_to, duration_mins, description")
-      .eq("braider_id", braider.id)
-      .eq("is_active", true),
-    supabase
-      .from("reviews")
-      .select("id, rating, comment, created_at")
-      .eq("braider_id", braider.id)
-      .eq("is_published", true)
-      .order("created_at", { ascending: false })
-      .limit(50),
-  ]);
+  const [{ data: services }, { data: reviews }, { data: photos }, { data: textures }] =
+    await Promise.all([
+      supabase
+        .from("services")
+        .select("id, name, category, price_from, price_to, duration_mins, description")
+        .eq("braider_id", braider.id)
+        .eq("is_active", true),
+      supabase
+        .from("reviews")
+        .select("id, rating, comment, created_at")
+        .eq("braider_id", braider.id)
+        .eq("is_published", true)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("braider_portfolio_photos")
+        .select("storage_path, sort_order")
+        .eq("braider_id", braider.id)
+        .order("sort_order", { ascending: true }),
+      // Only VERIFIED specialisations are ever shown to clients.
+      supabase
+        .from("braider_texture_specialisations")
+        .select("texture")
+        .eq("braider_id", braider.id)
+        .eq("is_verified", true),
+    ]);
 
   const braiderWithName = {
     ...braider,
     name: profile?.display_name ?? profile?.full_name ?? "Braidr braider",
     avatar_url: profile?.avatar_url ?? null,
+    portfolio_photos: (photos ?? []).map((p) => p.storage_path),
+    verified_textures: (textures ?? []).map((t) => t.texture),
   };
 
   return ok({ braider: braiderWithName, services: services ?? [], reviews: reviews ?? [] });

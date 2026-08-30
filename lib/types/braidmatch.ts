@@ -1,4 +1,18 @@
 import type { BookingStatus, ServiceCategory } from "@/types/database";
+import type { HairTexture, HairTypeValue } from "@/lib/hair/textures";
+
+/** One portfolio photo, braider-owned management view. */
+export type PortfolioPhoto = {
+  id: string;
+  storage_path: string;
+  texture: HairTexture | null;
+};
+
+/** A braider's declared texture specialisation + its verification state. */
+export type TextureSpec = {
+  texture: HairTexture;
+  is_verified: boolean;
+};
 
 // Client-facing shapes returned by the /api/braiders and /api/bookings
 // routes. Kept here so pages and hooks share one definition.
@@ -20,6 +34,8 @@ export type BraiderCard = {
   price_from_pence: number | null;
   /** Present on the single-braider response only; storage paths in the public portfolio-photos bucket. */
   portfolio_photos?: string[];
+  /** Textures this braider is VERIFIED for (>= 1 tagged portfolio photo). Unverified specialisations are never sent to clients. */
+  verified_textures?: HairTexture[];
 };
 
 export type Service = {
@@ -61,7 +77,8 @@ export type MyBraiderProfile = {
   braidr_pro_subscribed: boolean;
   stripe_account_id: string | null;
   stripe_charges_enabled: boolean;
-  portfolio_photos: string[];
+  portfolio_photos: PortfolioPhoto[];
+  texture_specialisations: TextureSpec[];
   avg_rating: number | null;
   total_reviews: number;
   verification_note: string | null;
@@ -139,6 +156,10 @@ export type BookingDetail = BookingBase & {
   service_category: string | null;
   braider_name: string;
   client_name: string | null;
+  /** Present only when the braider is viewing — for the post-appointment
+   *  "confirm this client's hair type" step. */
+  client_hair_type?: HairTypeValue | null;
+  client_hair_type_source?: "self" | "braider_confirmed";
 };
 
 export const STYLE_OPTIONS = [

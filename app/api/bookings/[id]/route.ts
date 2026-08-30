@@ -34,9 +34,19 @@ export async function GET(request: Request, { params }: { params: { id: string }
   if (braiderProfile?.user_id) nameIds.push(braiderProfile.user_id);
   const { data: people } = await supabase
     .from("profiles")
-    .select("id, display_name, full_name")
+    .select("id, display_name, full_name, hair_type, hair_type_source")
     .in("id", nameIds);
-  const personName = new Map((people ?? []).map((p) => [p.id, p.display_name ?? p.full_name]));
+  const byId = new Map((people ?? []).map((p) => [p.id, p]));
+  const personName = new Map(
+    (people ?? []).map((p) => [p.id, p.display_name ?? p.full_name] as const)
+  );
+
+  // The braider viewing their own booking also gets the client's hair type,
+  // for the post-appointment "confirm or update" step (Part 1). Readable
+  // via profiles_select_own_clients. Clients don't need it here — their own
+  // value lives on /settings.
+  const isBraiderViewer = braiderProfile?.user_id === user.id;
+  const clientProfile = byId.get(booking.client_id);
 
   return ok({
     booking: {
@@ -48,6 +58,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
         ? (personName.get(braiderProfile.user_id) ?? "Braider")
         : "Braider",
       client_name: personName.get(booking.client_id) ?? null,
+      ...(isBraiderViewer
+        ? {
+            client_hair_type: clientProfile?.hair_type ?? null,
+            client_hair_type_source: clientProfile?.hair_type_source ?? "self",
+          }
+        : {}),
     },
   });
 }

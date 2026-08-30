@@ -147,7 +147,12 @@ export function BrAccountButton({
     );
   }
   return (
-    <button type="button" className="br-navlink br-navlink-outline" aria-haspopup="menu" onClick={onClick}>
+    <button
+      type="button"
+      className="br-navlink br-navlink-outline"
+      aria-haspopup="menu"
+      onClick={onClick}
+    >
       {inner}
     </button>
   );

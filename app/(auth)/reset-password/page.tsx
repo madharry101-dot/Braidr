@@ -60,7 +60,7 @@ export default function ResetPasswordPage() {
     return (
       <div>
         <h1 className="br-display text-2xl">Password updated</h1>
-        <p className="mt-3 br-muted text-sm">Taking you to the sign-in page&hellip;</p>
+        <p className="br-muted mt-3 text-sm">Taking you to the sign-in page&hellip;</p>
       </div>
     );
   }
@@ -69,13 +69,10 @@ export default function ResetPasswordPage() {
     return (
       <div>
         <h1 className="br-display text-2xl">Link expired</h1>
-        <p className="mt-3 br-muted text-sm">
+        <p className="br-muted mt-3 text-sm">
           This reset link is invalid or has already been used. Request a new one.
         </p>
-        <Link
-          href="/forgot-password"
-          className="mt-6 inline-block font-medium br-link underline"
-        >
+        <Link href="/forgot-password" className="br-link mt-6 inline-block font-medium underline">
           Request a new link
         </Link>
       </div>

@@ -19,7 +19,13 @@ const env = Object.fromEntries(
     .filter((l) => l.includes("=") && !l.trim().startsWith("#"))
     .map((l) => {
       const i = l.indexOf("=");
-      return [l.slice(0, i).trim(), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")];
+      return [
+        l.slice(0, i).trim(),
+        l
+          .slice(i + 1)
+          .trim()
+          .replace(/^["']|["']$/g, ""),
+      ];
     })
 );
 
@@ -40,7 +46,14 @@ const refused = (error, msg) => ok(Boolean(error), msg + (error ? "" : "  <-- IT
 
 const suffix = Date.now();
 const PW = "correct-horse-battery-staple";
-const ids = { authorId: null, reviewerId: null, braiderUserId: null, braiderProfileId: null, clientId: null, postId: null };
+const ids = {
+  authorId: null,
+  reviewerId: null,
+  braiderUserId: null,
+  braiderProfileId: null,
+  clientId: null,
+  postId: null,
+};
 
 async function mkUser(role, label) {
   const { data, error } = await admin.auth.admin.createUser({
@@ -203,7 +216,11 @@ try {
 
   const { error: skipReview } = await admin
     .from("blog_posts")
-    .update({ status: "published", published_at: new Date().toISOString(), reviewed_by: ids.reviewerId })
+    .update({
+      status: "published",
+      published_at: new Date().toISOString(),
+      reviewed_by: ids.reviewerId,
+    })
     .eq("id", post.id);
   refused(skipReview, "draft -> published is REFUSED (must pass through review)");
 
@@ -288,7 +305,9 @@ try {
     .insert({ user_id: ids.clientId, consent_source: "settings_page" });
   refused(dupe, "a user cannot have two subscription rows");
 
-  await admin.from("newsletter_sends").insert({ post_id: post.id, recipient_user_id: ids.clientId });
+  await admin
+    .from("newsletter_sends")
+    .insert({ post_id: post.id, recipient_user_id: ids.clientId });
   const { error: doubleSend } = await admin
     .from("newsletter_sends")
     .insert({ post_id: post.id, recipient_user_id: ids.clientId });

@@ -55,9 +55,7 @@ export function FadeUp({
       className={className}
       initial={false}
       animate={
-        hide
-          ? HIDE
-          : { ...SHOW, transition: { duration: DURATION.base, delay, ease: EASE } }
+        hide ? HIDE : { ...SHOW, transition: { duration: DURATION.base, delay, ease: EASE } }
       }
     >
       {children}

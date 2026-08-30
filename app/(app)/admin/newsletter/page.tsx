@@ -44,10 +44,7 @@ export default function AdminNewsletterPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
-        title="Newsletter"
-        subtitle="Subscribers and the consent audit trail."
-      />
+      <PageHeader title="Newsletter" subtitle="Subscribers and the consent audit trail." />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Card>
@@ -144,8 +141,7 @@ export default function AdminNewsletterPage() {
                         <Badge tone="braidcare">Subscribed</Badge>
                       ) : (
                         <Badge tone="neutral">
-                          Unsubscribed{" "}
-                          {s.unsubscribed_at ? formatDateTime(s.unsubscribed_at) : ""}
+                          Unsubscribed {s.unsubscribed_at ? formatDateTime(s.unsubscribed_at) : ""}
                         </Badge>
                       )}
                     </td>

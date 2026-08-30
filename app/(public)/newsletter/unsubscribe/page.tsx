@@ -49,8 +49,8 @@ function Unsubscribe() {
             You&rsquo;re unsubscribed. You won&rsquo;t get any more educational emails from us.
           </Alert>
           <p className="mt-3 text-sm text-slate">
-            This doesn&rsquo;t affect emails about your own bookings or BraidCare checks — those
-            are part of the service, and you can manage them in{" "}
+            This doesn&rsquo;t affect emails about your own bookings or BraidCare checks — those are
+            part of the service, and you can manage them in{" "}
             <Link href="/settings" className="text-teal-deep underline">
               Settings
             </Link>
@@ -78,11 +78,7 @@ function Unsubscribe() {
             Confirm below and we&rsquo;ll stop sending you emails about new educational content.
             Emails about your own bookings and BraidCare checks aren&rsquo;t affected.
           </p>
-          <Button
-            className="mt-4 sm:!w-auto"
-            loading={state === "working"}
-            onClick={confirm}
-          >
+          <Button className="mt-4 sm:!w-auto" loading={state === "working"} onClick={confirm}>
             Unsubscribe me
           </Button>
         </>

@@ -116,8 +116,8 @@ function RegisterForm() {
       <div>
         <h1 className="br-display text-2xl">Check your email</h1>
         <p className="mt-3 text-sm" style={{ color: "var(--text-muted)" }}>
-          We&rsquo;ve sent a confirmation link to <span className="font-medium">{email}</span>. Click
-          it to activate your account, then sign in.
+          We&rsquo;ve sent a confirmation link to <span className="font-medium">{email}</span>.
+          Click it to activate your account, then sign in.
         </p>
         <Link
           href="/login"

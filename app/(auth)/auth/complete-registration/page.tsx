@@ -72,7 +72,7 @@ export default function CompleteRegistrationPage() {
   return (
     <div>
       <h1 className="br-display text-2xl">You&rsquo;re almost done</h1>
-      <p className="mt-1 br-muted text-sm">
+      <p className="br-muted mt-1 text-sm">
         We&rsquo;ll set up your Braidr account using your Google name and email. Choose how
         you&rsquo;d like to use Braidr.
       </p>
@@ -101,7 +101,7 @@ export default function CompleteRegistrationPage() {
 
         <BrButton
           type="submit"
-         
+
           loading={pending}
           disabled={!acceptedTerms}
           className="w-full"

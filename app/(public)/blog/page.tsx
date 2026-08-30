@@ -17,11 +17,7 @@ export const metadata: Metadata = {
 // anon role) rather than fetching from the client.
 export const revalidate = 300;
 
-export default async function BlogIndex({
-  searchParams,
-}: {
-  searchParams: { category?: string };
-}) {
+export default async function BlogIndex({ searchParams }: { searchParams: { category?: string } }) {
   const supabase = await createClient();
 
   const active = (BLOG_CATEGORIES as readonly string[]).includes(searchParams.category ?? "")
@@ -37,9 +33,7 @@ export default async function BlogIndex({
   if (active) query = query.eq("category", active);
 
   const { data: posts } = await query;
-  const people = await hydratePeople(
-    (posts ?? []).map((p) => p.author_id)
-  );
+  const people = await hydratePeople((posts ?? []).map((p) => p.author_id));
 
   return (
     <div>
@@ -68,7 +62,9 @@ export default async function BlogIndex({
         <div className="mt-8 rounded-lg border border-dashed border-mist bg-white/60 p-10 text-center">
           <p className="font-medium text-plum">Nothing here yet</p>
           <p className="mt-1 text-sm text-slate">
-            {active ? "No articles in this category so far." : "The first articles are on their way."}
+            {active
+              ? "No articles in this category so far."
+              : "The first articles are on their way."}
           </p>
         </div>
       ) : (
@@ -100,15 +96,7 @@ export default async function BlogIndex({
   );
 }
 
-function CategoryLink({
-  href,
-  active,
-  label,
-}: {
-  href: string;
-  active: boolean;
-  label: string;
-}) {
+function CategoryLink({ href, active, label }: { href: string; active: boolean; label: string }) {
   return (
     <Link
       href={href}

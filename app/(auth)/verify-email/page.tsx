@@ -42,11 +42,8 @@ function VerifyEmail() {
     return (
       <div>
         <h1 className="br-display text-2xl">Email confirmed</h1>
-        <p className="mt-3 br-muted text-sm">Your account is active. You can sign in now.</p>
-        <Link
-          href="/login"
-          className="mt-6 inline-block font-medium br-link underline"
-        >
+        <p className="br-muted mt-3 text-sm">Your account is active. You can sign in now.</p>
+        <Link href="/login" className="br-link mt-6 inline-block font-medium underline">
           Go to sign in
         </Link>
       </div>
@@ -61,10 +58,7 @@ function VerifyEmail() {
           ? "This page needs a confirmation link from your email."
           : "This confirmation link is invalid or has expired."}
       </Alert>
-      <Link
-        href="/login"
-        className="mt-6 inline-block font-medium br-link underline"
-      >
+      <Link href="/login" className="br-link mt-6 inline-block font-medium underline">
         Back to sign in
       </Link>
     </div>

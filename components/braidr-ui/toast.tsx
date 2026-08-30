@@ -12,24 +12,26 @@ import { type BrChipTone } from "./badge";
 
 export type BrToastTone = "success" | "error" | "info";
 
-const TONE: Record<BrToastTone, { chip: BrChipTone; icon: React.ReactNode; role: "status" | "alert" }> =
-  {
-    success: {
-      chip: "deep",
-      icon: <Check size={16} aria-hidden="true" />,
-      role: "status",
-    },
-    error: {
-      chip: "rust",
-      icon: <AlertCircle size={16} aria-hidden="true" />,
-      role: "alert",
-    },
-    info: {
-      chip: "sand",
-      icon: <Info size={16} aria-hidden="true" />,
-      role: "status",
-    },
-  };
+const TONE: Record<
+  BrToastTone,
+  { chip: BrChipTone; icon: React.ReactNode; role: "status" | "alert" }
+> = {
+  success: {
+    chip: "deep",
+    icon: <Check size={16} aria-hidden="true" />,
+    role: "status",
+  },
+  error: {
+    chip: "rust",
+    icon: <AlertCircle size={16} aria-hidden="true" />,
+    role: "alert",
+  },
+  info: {
+    chip: "sand",
+    icon: <Info size={16} aria-hidden="true" />,
+    role: "status",
+  },
+};
 
 const CHIP_CLASS: Record<BrChipTone, string> = {
   gold: "br-chip-gold",

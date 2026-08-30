@@ -105,7 +105,11 @@ function LoginForm() {
 
       <p className="mt-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
         New to Braidr?{" "}
-        <Link href="/register" className="font-medium underline" style={{ color: "var(--gold-ink)" }}>
+        <Link
+          href="/register"
+          className="font-medium underline"
+          style={{ color: "var(--gold-ink)" }}
+        >
           Create an account
         </Link>
       </p>

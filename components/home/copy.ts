@@ -66,8 +66,7 @@ export const HOME_COPY = {
         body: "You pay through Braidr and the money is held, not forwarded. It releases twenty-four hours after your appointment, once you have seen the finished style and lived with it for a day.",
       },
     ],
-    imageNote:
-      "Client mid-appointment, braider’s hands in frame, warm interior light, unposed",
+    imageNote: "Client mid-appointment, braider’s hands in frame, warm interior light, unposed",
   },
 
   braidcare: {
@@ -83,8 +82,7 @@ export const HOME_COPY = {
     ],
     // Mandatory, verbatim, every time BraidCare is discussed anywhere in
     // the product. Do not drop it from any BraidCare surface.
-    closer:
-      "BraidCare doesn’t replace your dermatologist. It makes sure you know when to see one.",
+    closer: "BraidCare doesn’t replace your dermatologist. It makes sure you know when to see one.",
     cta: "See how BraidCare works",
     imageNote: "Phone held to a parted section of scalp, guided camera overlay visible",
     sessions: [

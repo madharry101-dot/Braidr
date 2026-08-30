@@ -38,7 +38,12 @@ export function BrImage({
   return (
     <div
       className={cn("br-img", className)}
-      style={{ aspectRatio: ratio, borderRadius: RADIUS[radius], padding: media ? 0 : 20, ...style }}
+      style={{
+        aspectRatio: ratio,
+        borderRadius: RADIUS[radius],
+        padding: media ? 0 : 20,
+        ...style,
+      }}
     >
       {media ?? (note && <span className="br-img-note">{note}</span>)}
     </div>

@@ -29,10 +29,7 @@ export function MarketingFooter() {
         <span className="br-wordmark" style={{ padding: 0, fontSize: "1.75rem" }}>
           braidr
         </span>
-        <p
-          className="br-display mt-5 max-w-[480px] text-3xl"
-          style={{ lineHeight: 1.2 }}
-        >
+        <p className="br-display mt-5 max-w-[480px] text-3xl" style={{ lineHeight: 1.2 }}>
           {HOME_COPY.footer.tagline}
         </p>
         <p className="mt-3 text-[0.9375rem]" style={{ color: "rgba(249,244,237,.6)" }}>

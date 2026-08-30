@@ -27,10 +27,7 @@ export async function GET(request: NextRequest) {
   const { data: posts, error } = await query;
   if (error) return fail("INTERNAL_ERROR", "Couldn't load posts.", 500);
 
-  const people = await hydratePeople(
-    supabase,
-    (posts ?? []).map((p) => p.author_id)
-  );
+  const people = await hydratePeople((posts ?? []).map((p) => p.author_id));
 
   return ok({
     posts: (posts ?? []).map(({ author_id, ...p }) => ({

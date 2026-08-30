@@ -17,7 +17,7 @@ export async function GET(_request: Request, { params }: { params: { slug: strin
 
   if (!post) return fail("NOT_FOUND", "Post not found.", 404);
 
-  const people = await hydratePeople(supabase, [post.author_id]);
+  const people = await hydratePeople([post.author_id]);
   const author = people.get(post.author_id);
 
   return ok({

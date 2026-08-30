@@ -24,7 +24,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     .maybeSingle();
   if (!post) return fail("NOT_FOUND", "Post not found.", 404);
 
-  const people = await hydratePeople(supabase, [post.author_id, post.reviewed_by ?? ""]);
+  const people = await hydratePeople([post.author_id, post.reviewed_by ?? ""]);
 
   return ok({
     post: {

@@ -19,7 +19,7 @@ async function loadPost(slug: string) {
     .maybeSingle();
   if (!post) return null;
 
-  const people = await hydratePeople(supabase, [post.author_id]);
+  const people = await hydratePeople([post.author_id]);
   return { post, author: people.get(post.author_id) ?? null };
 }
 

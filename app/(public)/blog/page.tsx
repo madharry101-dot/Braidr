@@ -38,7 +38,6 @@ export default async function BlogIndex({
 
   const { data: posts } = await query;
   const people = await hydratePeople(
-    supabase,
     (posts ?? []).map((p) => p.author_id)
   );
 

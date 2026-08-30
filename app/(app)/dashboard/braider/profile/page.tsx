@@ -90,11 +90,12 @@ function ProfileForm({ profile }: { profile: MyBraiderProfile }) {
         subtitle="This is what clients see in search and on your profile page."
       />
 
-      <Card>
-        <form onSubmit={save} className="flex flex-col gap-4" noValidate>
-          {error && <Alert tone="error">{error}</Alert>}
-          {saved && <Alert tone="success">Profile saved.</Alert>}
+      {error && <Alert tone="error">{error}</Alert>}
+      {saved && <Alert tone="success">Profile saved.</Alert>}
 
+      <Card>
+        <CardTitle className="text-lg">Your details</CardTitle>
+        <form onSubmit={save} className="mt-4 flex flex-col gap-4" noValidate>
           <div className="flex flex-col gap-1.5">
             <label htmlFor="bio" className="text-sm font-medium text-plum">
               Bio
@@ -126,13 +127,6 @@ function ProfileForm({ profile }: { profile: MyBraiderProfile }) {
             />
           </div>
 
-          <TagInput
-            label="Styles you offer"
-            value={specialisations}
-            onChange={setSpecialisations}
-            suggestions={STYLE_OPTIONS}
-          />
-
           <Input
             label="Years of experience"
             type="number"
@@ -148,9 +142,33 @@ function ProfileForm({ profile }: { profile: MyBraiderProfile }) {
         </form>
       </Card>
 
+      {/* Two distinct axes, deliberately in separate sections: the styles a
+          braider *does* vs. the hair textures they work *on*. They read as
+          one thing when adjacent, hence the headers and descriptions. */}
       <Card>
-        <CardTitle className="text-lg">Textures you specialise in</CardTitle>
-        <div className="mt-2">
+        <CardTitle className="text-lg">Braiding styles you offer</CardTitle>
+        <p className="mt-1 text-sm text-slate">
+          The services and looks you create — knotless braids, cornrows, faux locs, and so on.
+        </p>
+        <form onSubmit={save} className="mt-4 flex flex-col gap-4" noValidate>
+          <TagInput
+            label="Styles"
+            value={specialisations}
+            onChange={setSpecialisations}
+            suggestions={STYLE_OPTIONS}
+          />
+          <Button type="submit" size="sm" loading={update.isPending} className="sm:!w-auto">
+            Save styles
+          </Button>
+        </form>
+      </Card>
+
+      <Card>
+        <CardTitle className="text-lg">Hair textures you specialise in</CardTitle>
+        <p className="mt-1 text-sm text-slate">
+          The natural hair types you work on — a different thing from the styles above.
+        </p>
+        <div className="mt-3">
           <TextureSpecialisations
             specs={profile.texture_specialisations}
             taggedTextures={profile.portfolio_photos

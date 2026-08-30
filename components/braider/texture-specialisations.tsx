@@ -57,8 +57,8 @@ export function TextureSpecialisations({
   return (
     <div>
       <p className="text-sm text-slate">
-        Select all that apply. Add one portfolio photo per texture to get verified — only verified
-        specialisations are shown to clients.
+        Select all that apply. Tag one portfolio photo per texture to get verified — only verified
+        textures are shown to clients.
       </p>
 
       {error && (

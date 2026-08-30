@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { ApiError } from "@/lib/api/client";
+import { Spinner } from "@/components/ui/spinner";
+import { ApiError, type ApiEnvelope } from "@/lib/api/client";
 import { renderMarkdown } from "@/lib/blog/markdown";
 import { BLOG_CATEGORIES, BLOG_CATEGORY_META, type BlogCategory } from "@/lib/blog/types";
 import type { BlogPostInput } from "@/lib/hooks/blog";
@@ -32,6 +33,49 @@ export function PostEditor({
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const imageRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+
+  // Upload, then drop the Markdown at the caret rather than appending —
+  // an author placing an image mid-article shouldn't have to cut and paste
+  // it up from the bottom. Falls back to appending when the textarea isn't
+  // focused (e.g. the image button was clicked straight from preview).
+  async function insertImage(file: File) {
+    setUploadError(null);
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      const res = await fetch("/api/blog/images", { method: "POST", body: form });
+      const payload = (await res.json()) as ApiEnvelope<{ url: string }>;
+      if (!payload.success) {
+        setUploadError(payload.error.message);
+        return;
+      }
+
+      const alt = file.name.replace(/\.[^.]+$/, "").replace(/[[\]()]/g, "");
+      const snippet = `\n\n![${alt}](${payload.data.url})\n\n`;
+      const el = bodyRef.current;
+      const at = el && document.activeElement === el ? el.selectionStart : body.length;
+      const next = body.slice(0, at) + snippet + body.slice(at);
+      setBody(next);
+      setPreview(false);
+
+      // Restore the caret after the inserted snippet on the next paint.
+      requestAnimationFrame(() => {
+        const caret = at + snippet.length;
+        el?.focus();
+        el?.setSelectionRange(caret, caret);
+      });
+    } catch {
+      setUploadError("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,23 +136,59 @@ export function PostEditor({
       </Card>
 
       <Card>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-lg">Body</CardTitle>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="sm:!w-auto"
-            onClick={() => setPreview((v) => !v)}
-          >
-            {preview ? "Edit" : "Preview"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="sm:!w-auto"
+              disabled={uploading}
+              onClick={() => imageRef.current?.click()}
+            >
+              {uploading ? (
+                <>
+                  <Spinner className="h-4 w-4" /> Uploading…
+                </>
+              ) : (
+                "Insert image"
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="sm:!w-auto"
+              onClick={() => setPreview((v) => !v)}
+            >
+              {preview ? "Edit" : "Preview"}
+            </Button>
+          </div>
         </div>
         <p className="mt-1 text-sm text-slate">
           Markdown: <code>##</code> headings, <code>**bold**</code>, <code>*italic*</code>,{" "}
-          <code>[links](url)</code>, <code>![alt](image-url)</code>, <code>-</code> lists,{" "}
-          <code>&gt;</code> quotes. Raw HTML is not rendered.
+          <code>[links](url)</code>, <code>-</code> lists, <code>&gt;</code> quotes. Raw HTML is not
+          rendered.
         </p>
+
+        <input
+          ref={imageRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) insertImage(file);
+            e.target.value = "";
+          }}
+        />
+
+        {uploadError && (
+          <Alert tone="error" className="mt-3">
+            {uploadError}
+          </Alert>
+        )}
 
         {preview ? (
           <div
@@ -117,6 +197,7 @@ export function PostEditor({
           />
         ) : (
           <textarea
+            ref={bodyRef}
             aria-label="Post body"
             rows={22}
             value={body}

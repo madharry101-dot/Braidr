@@ -6,6 +6,7 @@
 // generated file is the source of truth from then on, not this one.
 
 import type { HairTexture, HairTypeValue } from "@/lib/hair/textures";
+import type { BlogCategory, BlogStatus } from "@/lib/blog/types";
 
 export type Role = "client" | "braider" | "expert" | "admin";
 export type BookingStatus =
@@ -165,6 +166,47 @@ export interface Database {
           verification_note: string | null;
           avg_rating: number | null;
           total_reviews: number;
+        }>;
+        Relationships: [];
+      };
+      blog_posts: {
+        Row: {
+          id: string;
+          title: string;
+          slug: string;
+          body: string;
+          excerpt: string;
+          author_id: string;
+          category: BlogCategory;
+          status: BlogStatus;
+          published_at: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          review_note: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        // status is not insertable: the enforce_blog_status trigger requires
+        // every post to be created as a draft.
+        Insert: {
+          title: string;
+          slug: string;
+          body: string;
+          excerpt: string;
+          author_id: string;
+          category: BlogCategory;
+        };
+        Update: Partial<{
+          title: string;
+          slug: string;
+          body: string;
+          excerpt: string;
+          category: BlogCategory;
+          status: BlogStatus;
+          published_at: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          review_note: string | null;
         }>;
         Relationships: [];
       };

@@ -797,6 +797,79 @@ body {
   animation-name: br-enter-fade;
 }
 
+/* ── BLOG BODY ────────────────────────────────────────────────
+   Typography for rendered Markdown (lib/blog/markdown.ts). Tailwind's
+   preflight strips heading/list defaults, and the body is injected as
+   HTML rather than authored as JSX, so it can't carry utility classes —
+   these element rules are how it gets styled. Scoped to .blog-body so
+   nothing else is affected. */
+.blog-body {
+  color: var(--color-slate);
+  line-height: 1.7;
+}
+.blog-body > * + * {
+  margin-top: 1.1em;
+}
+.blog-body h2,
+.blog-body h3,
+.blog-body h4 {
+  font-family: var(--font-display);
+  color: var(--color-plum);
+  line-height: 1.25;
+  margin-top: 1.9em;
+}
+.blog-body h2 {
+  font-size: 1.5rem;
+}
+.blog-body h3 {
+  font-size: 1.25rem;
+}
+.blog-body h4 {
+  font-size: 1.0625rem;
+}
+.blog-body strong {
+  color: var(--color-plum);
+  font-weight: 600;
+}
+.blog-body a {
+  color: var(--color-teal-deep);
+  text-decoration: underline;
+}
+.blog-body ul,
+.blog-body ol {
+  padding-left: 1.5rem;
+}
+.blog-body ul {
+  list-style: disc;
+}
+.blog-body ol {
+  list-style: decimal;
+}
+.blog-body li + li {
+  margin-top: 0.4em;
+}
+.blog-body blockquote {
+  border-left: 3px solid var(--color-mist);
+  padding-left: 1rem;
+  color: var(--color-slate);
+  font-style: italic;
+}
+.blog-body code {
+  background: var(--color-mist);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+.blog-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+}
+.blog-body hr {
+  border: 0;
+  border-top: 1px solid var(--color-mist);
+}
+
 /* ── REDUCED MOTION ───────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -68,6 +68,15 @@ export default function ExpertDashboard() {
         </Link>
       )}
 
+      <Link href="/dashboard/expert/blog">
+        <Card className="transition-shadow hover:shadow-[0_2px_4px_rgba(45,27,53,0.1),0_8px_24px_rgba(45,27,53,0.1)]">
+          <CardTitle className="text-base">Articles</CardTitle>
+          <p className="mt-1 text-sm text-slate">
+            Write for the hair and scalp health hub, and review other advisors&rsquo; drafts.
+          </p>
+        </Card>
+      </Link>
+
       <Card>
         <div className="flex items-center justify-between">
           <CardTitle className="text-base">Your listing</CardTitle>

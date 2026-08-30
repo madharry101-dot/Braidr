@@ -45,11 +45,13 @@ export async function POST(request: NextRequest) {
     { data: service },
     { data: proProgress },
   ] = await Promise.all([
+    // The client's name for the invoice — via braider_client_profiles, the
+    // only thing a braider may read about a client (see 20260911000002).
     supabase
-      .from("profiles")
-      .select("full_name, display_name")
+      .from("braider_client_profiles")
+      .select("name")
       .eq("id", booking.client_id)
-      .single(),
+      .maybeSingle(),
     supabase.from("profiles").select("full_name, display_name").eq("id", user.id).single(),
     supabase.from("services").select("name").eq("id", booking.service_id).single(),
     supabase
@@ -63,7 +65,7 @@ export async function POST(request: NextRequest) {
     invoiceNumber: booking.id.slice(0, 8).toUpperCase(),
     braiderName:
       braiderOwnProfile?.display_name ?? braiderOwnProfile?.full_name ?? "Braidr Braider",
-    clientName: clientProfile?.display_name ?? clientProfile?.full_name ?? "Client",
+    clientName: clientProfile?.name ?? "Client",
     serviceName: service?.name ?? "Service",
     appointmentDate: new Date(booking.appointment_at).toLocaleDateString("en-GB"),
     amountPence: booking.amount_pence,

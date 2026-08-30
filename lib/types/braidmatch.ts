@@ -156,10 +156,10 @@ export type BookingDetail = BookingBase & {
   service_category: string | null;
   braider_name: string;
   client_name: string | null;
-  /** Present only when the braider is viewing — for the post-appointment
-   *  "confirm this client's hair type" step. */
+  /** Present only when the braider is viewing. Non-null = a braider has
+   *  already confirmed it; null = not yet recorded. A client's own
+   *  self-report is never shared with the braider. */
   client_hair_type?: HairTypeValue | null;
-  client_hair_type_source?: "self" | "braider_confirmed";
 };
 
 export const STYLE_OPTIONS = [

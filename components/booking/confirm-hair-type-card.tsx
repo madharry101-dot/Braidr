@@ -10,37 +10,38 @@ import { useConfirmClientHairType } from "@/lib/hooks/braidmatch";
 import { ApiError } from "@/lib/api/client";
 import {
   HAIR_TEXTURES,
-  HAIR_TYPE_LABEL,
   TEXTURE_META,
   isHairTexture,
   type HairTexture,
   type HairTypeValue,
 } from "@/lib/hair/textures";
 
-// Part 1 — braider post-appointment step. Single tap to confirm what the
-// client reported, or override it. Always skippable: this card never gates
-// "Mark as completed", and dismissing it does nothing destructive.
+// Part 1 — braider post-appointment step. The braider records the texture
+// they actually worked with, so we can match this client better next time.
+//
+// The braider does NOT see the client's own self-assessment (that stays on
+// the client's side — see the braider_client_profiles view). So `clientHairType`
+// here is either a value a braider confirmed on a previous appointment, or
+// null. Always skippable: this never gates "Mark as completed".
 
 export function ConfirmHairTypeCard({
   bookingId,
   clientName,
   clientHairType,
-  alreadyConfirmed,
 }: {
   bookingId: string;
   clientName: string;
   clientHairType: HairTypeValue | null;
-  alreadyConfirmed: boolean;
 }) {
   const confirm = useConfirmClientHairType(bookingId);
   const [dismissed, setDismissed] = useState(false);
-  const [override, setOverride] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
   if (dismissed) return null;
 
-  const selfReported = isHairTexture(clientHairType) ? clientHairType : null;
+  const recorded = isHairTexture(clientHairType) ? clientHairType : null;
 
   async function submit(texture: HairTexture) {
     setError(null);
@@ -53,15 +54,17 @@ export function ConfirmHairTypeCard({
   }
 
   if (done) {
-    return <Alert tone="success">Thanks — {clientName}&rsquo;s hair type has been updated.</Alert>;
+    return <Alert tone="success">Thanks — {clientName}&rsquo;s hair type has been recorded.</Alert>;
   }
 
   return (
     <Card>
-      <CardTitle className="text-lg">Confirm this client&rsquo;s hair type</CardTitle>
+      <CardTitle className="text-lg">
+        {recorded ? "Update this client’s hair type" : "Record this client’s hair type"}
+      </CardTitle>
       <p className="mt-1 text-sm text-slate">
-        Optional. What you saw in the chair is more useful than a self-assessment — it helps us
-        match {clientName} well next time. Skip this if you&rsquo;d rather not.
+        Optional. Noting the texture you worked with helps us match {clientName} well next time.
+        Skip this if you&rsquo;d rather not.
       </p>
 
       {error && (
@@ -70,66 +73,34 @@ export function ConfirmHairTypeCard({
         </Alert>
       )}
 
-      {alreadyConfirmed && !override && (
-        <p className="mt-3 text-sm text-slate">
-          A braider has already confirmed this as{" "}
-          <span className="font-medium text-plum">
-            {clientHairType ? HAIR_TYPE_LABEL[clientHairType] : "not set"}
-          </span>
-          .
-        </p>
-      )}
-
-      {!override ? (
+      {!picking ? (
         <div className="mt-4 flex flex-col gap-3">
-          {selfReported ? (
-            <>
-              <p className="text-sm text-plum">
-                {clientName} says their hair is{" "}
-                <span className="font-medium">{TEXTURE_META[selfReported].label}</span> —{" "}
-                {TEXTURE_META[selfReported].desc.toLowerCase()}.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  className="sm:!w-auto"
-                  loading={confirm.isPending}
-                  onClick={() => submit(selfReported)}
-                >
-                  Confirm {TEXTURE_META[selfReported].label}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="sm:!w-auto"
-                  onClick={() => setOverride(true)}
-                >
-                  It&rsquo;s something else
-                </Button>
-              </div>
-            </>
+          {recorded ? (
+            <p className="text-sm text-plum">
+              Currently recorded as{" "}
+              <span className="font-medium">{TEXTURE_META[recorded].label}</span>, confirmed after
+              an earlier appointment.
+            </p>
           ) : (
-            <>
-              <p className="text-sm text-plum">
-                {clientName} hasn&rsquo;t set a hair type. You can add one from what you saw.
-              </p>
-              <Button
-                size="sm"
-                variant="secondary"
-                className="sm:!w-auto"
-                onClick={() => setOverride(true)}
-              >
-                Set their hair type
-              </Button>
-            </>
+            <p className="text-sm text-plum">Not recorded yet.</p>
           )}
-          <button
-            type="button"
-            onClick={() => setDismissed(true)}
-            className="self-start text-sm text-slate underline hover:text-plum"
-          >
-            Skip
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="sm:!w-auto"
+              onClick={() => setPicking(true)}
+            >
+              {recorded ? "Change it" : "Record hair type"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setDismissed(true)}
+              className="self-center text-sm text-slate underline hover:text-plum"
+            >
+              Skip
+            </button>
+          </div>
         </div>
       ) : (
         <div className="mt-4">
@@ -143,13 +114,14 @@ export function ConfirmHairTypeCard({
                 key={t}
                 type="button"
                 role="radio"
-                aria-checked={false}
+                aria-checked={recorded === t}
                 disabled={confirm.isPending}
                 onClick={() => submit(t)}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg border-2 border-mist bg-white p-3 text-left",
+                  "flex items-center gap-3 rounded-lg border-2 p-3 text-left",
                   "hover:border-teal/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal",
-                  "disabled:opacity-60"
+                  "disabled:opacity-60",
+                  recorded === t ? "bg-teal/5 border-teal" : "border-mist bg-white"
                 )}
               >
                 <span
@@ -169,7 +141,7 @@ export function ConfirmHairTypeCard({
           </div>
           <button
             type="button"
-            onClick={() => setOverride(false)}
+            onClick={() => setPicking(false)}
             className="mt-3 text-sm text-slate underline hover:text-plum"
           >
             Back

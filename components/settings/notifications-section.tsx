@@ -1,12 +1,7 @@
 "use client";
 
 import { Card, CardTitle } from "@/components/ui/card";
-import {
-  useNotificationSettings,
-  useUpdateNotificationSettings,
-  useMarketingConsent,
-  useUpdateMarketingConsent,
-} from "@/lib/hooks/settings";
+import { useNotificationSettings, useUpdateNotificationSettings } from "@/lib/hooks/settings";
 import { isEnabled } from "@/lib/settings/notifications";
 
 function Toggle({
@@ -34,11 +29,15 @@ function Toggle({
   );
 }
 
+// Transactional email only — messages about the caller's own bookings and
+// BraidCare checks. Opt-out (all on by default), which is lawful because
+// these are part of the service the user asked for. Marketing/educational
+// email lives in EmailPreferencesSection and is opt-IN — kept apart on
+// screen as well as in the schema so a transactional default can't be
+// mistaken for marketing consent.
 export function NotificationsSection() {
   const { data, isLoading } = useNotificationSettings();
   const update = useUpdateNotificationSettings();
-  const marketing = useMarketingConsent();
-  const updateMarketing = useUpdateMarketingConsent();
 
   if (isLoading || !data) return <Card>Loading…</Card>;
 
@@ -46,7 +45,7 @@ export function NotificationsSection() {
     <Card>
       <CardTitle>Notifications</CardTitle>
       <p className="mt-1 text-sm text-slate">
-        Email notifications. All are on unless you turn them off.
+        Emails about your own bookings and checks. All are on unless you turn them off.
       </p>
 
       <div className="mt-3 divide-y divide-mist">
@@ -59,18 +58,6 @@ export function NotificationsSection() {
             onChange={(v) => update.mutate({ [ev.key]: v })}
           />
         ))}
-      </div>
-
-      <div className="mt-3 border-t border-mist pt-3">
-        <Toggle
-          label="Marketing emails — new features, offers, and braiding tips"
-          checked={marketing.data?.opted_in ?? false}
-          disabled={marketing.isLoading || updateMarketing.isPending}
-          onChange={(v) => updateMarketing.mutate(v)}
-        />
-        <p className="text-xs text-slate">
-          We record every change to this setting as required by data-protection law.
-        </p>
       </div>
     </Card>
   );

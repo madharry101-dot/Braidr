@@ -48,7 +48,9 @@ export async function GET() {
 
   const [{ data: bookings }, { data: clients }] = await Promise.all([
     supabase.from("bookings").select("id, service_id, appointment_at").in("id", bookingIds),
-    supabase.from("profiles").select("id, display_name, full_name").in("id", clientIds),
+    // braider_client_profiles — the only client data a braider may read
+    // (see 20260911000002); a name is all this screen needs.
+    supabase.from("braider_client_profiles").select("id, name").in("id", clientIds),
   ]);
 
   const serviceIds = [...new Set((bookings ?? []).map((b) => b.service_id))];
@@ -59,7 +61,7 @@ export async function GET() {
 
   const bookingById = new Map((bookings ?? []).map((b) => [b.id, b]));
   const serviceName = new Map((services ?? []).map((s) => [s.id, s.name]));
-  const clientName = new Map((clients ?? []).map((c) => [c.id, c.display_name ?? c.full_name]));
+  const clientName = new Map((clients ?? []).map((c) => [c.id, c.name]));
 
   const hydrated = rows.map((s) => {
     const b = bookingById.get(s.booking_id);

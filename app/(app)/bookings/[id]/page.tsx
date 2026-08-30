@@ -212,7 +212,6 @@ export default function BookingDetailPage() {
             bookingId={booking.id}
             clientName={booking.client_name ?? "this client"}
             clientHairType={booking.client_hair_type ?? null}
-            alreadyConfirmed={booking.client_hair_type_source === "braider_confirmed"}
           />
         </div>
       )}

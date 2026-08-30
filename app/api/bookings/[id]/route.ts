@@ -30,9 +30,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
     supabase.from("braider_profiles").select("user_id").eq("id", booking.braider_id).single(),
   ]);
 
-  // Split by permission, not by convenience: the braider's name is public
-  // (public_profiles — see 20260911000001), the client's row is readable
-  // only by the braider they booked with (profiles_select_own_clients).
+  const isBraiderViewer = braiderProfile?.user_id === user.id;
+
+  // Split by permission, not by convenience:
+  //   * the braider's name is public                       -> public_profiles
+  //   * a client's details are for the braider they booked  -> braider_client_profiles
+  //     (name, phone, and the braider-confirmed hair type only — never
+  //     stripe_customer_id / referral_code / date_of_birth)
+  // A client viewing their own booking doesn't need client_name at all (the
+  // detail screen shows them the braider), so that read only runs for the
+  // braider side.
   const [{ data: braiderPerson }, { data: clientPerson }] = await Promise.all([
     braiderProfile?.user_id
       ? supabase
@@ -41,25 +48,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
           .eq("id", braiderProfile.user_id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
-    supabase
-      .from("profiles")
-      .select("id, display_name, full_name, hair_type, hair_type_source")
-      .eq("id", booking.client_id)
-      .maybeSingle(),
+    isBraiderViewer
+      ? supabase
+          .from("braider_client_profiles")
+          .select("id, name, hair_type")
+          .eq("id", booking.client_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
-
-  const personName = new Map<string, string>();
-  if (braiderPerson) personName.set(braiderPerson.id, braiderPerson.name);
-  if (clientPerson) {
-    personName.set(clientPerson.id, clientPerson.display_name ?? clientPerson.full_name);
-  }
-
-  // The braider viewing their own booking also gets the client's hair type,
-  // for the post-appointment "confirm or update" step (Part 1). Readable
-  // via profiles_select_own_clients. Clients don't need it here — their own
-  // value lives on /settings.
-  const isBraiderViewer = braiderProfile?.user_id === user.id;
-  const clientProfile = clientPerson;
 
   return ok({
     booking: {
@@ -67,16 +63,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
       service_name: service?.name ?? "Service",
       service_duration_mins: service?.duration_mins ?? null,
       service_category: service?.category ?? null,
-      braider_name: braiderProfile?.user_id
-        ? (personName.get(braiderProfile.user_id) ?? "Braider")
-        : "Braider",
-      client_name: personName.get(booking.client_id) ?? null,
-      ...(isBraiderViewer
-        ? {
-            client_hair_type: clientProfile?.hair_type ?? null,
-            client_hair_type_source: clientProfile?.hair_type_source ?? "self",
-          }
-        : {}),
+      braider_name: braiderPerson?.name ?? "Braider",
+      client_name: clientPerson?.name ?? null,
+      // Present only for the braider viewer. Non-null means a braider has
+      // already confirmed it; null means it hasn't been recorded yet (a
+      // client's own self-report is not shared with the braider).
+      ...(isBraiderViewer ? { client_hair_type: clientPerson?.hair_type ?? null } : {}),
     },
   });
 }

@@ -760,6 +760,24 @@ export interface Database {
         Update: Record<string, never>;
         Relationships: [];
       };
+      // A braider's view of a booked client — name, avatar, phone, and the
+      // braider-CONFIRMED hair type only (null until a braider confirms it).
+      // Never stripe_customer_id / referral_code / date_of_birth. Replaces
+      // the profiles_select_own_clients policy. See 20260911000002.
+      braider_client_profiles: {
+        Row: {
+          id: string;
+          name: string;
+          avatar_url: string | null;
+          phone: string | null;
+          hair_type: HairTexture | null;
+          hair_type_confirmed_at: string | null;
+          hair_type_confirmed_by: string | null;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
     };
     Functions: {
       get_own_braidcare_photos: {

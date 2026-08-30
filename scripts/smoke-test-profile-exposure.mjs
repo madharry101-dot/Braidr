@@ -156,7 +156,7 @@ try {
   ok(own?.phone === "07700900123", "the braider can still read their OWN phone");
   ok(Boolean(own?.referral_code), "the braider can still read their OWN referral code");
 
-  console.log("\n5. A braider can still see their own client's name");
+  console.log("\n5. A braider's view of a booked client (braider_client_profiles)");
   const { data: c } = await admin.auth.admin.createUser({
     email: `pe-client-${suffix}@braidr.internal.test`,
     password: PW,
@@ -164,6 +164,15 @@ try {
     user_metadata: { role: "client", full_name: "PE Client" },
   });
   ids.clientId = c.user.id;
+  await admin
+    .from("profiles")
+    .update({ phone: "07700900999", date_of_birth: "1995-05-05", hair_type: "curly" })
+    .eq("id", ids.clientId);
+  await admin
+    .from("profiles")
+    .update({ stripe_customer_id: "cus_CLIENT_SECRET" })
+    .eq("id", ids.clientId);
+
   const { data: svc } = await admin
     .from("services")
     .insert({
@@ -192,19 +201,62 @@ try {
     .single();
   ids.bookingId = bk.id;
 
-  const { data: clientRow } = await asBraider
+  // The old policy is gone: a braider can no longer touch the client's
+  // profiles row directly.
+  const { data: baseRow } = await asBraider
     .from("profiles")
     .select("full_name")
     .eq("id", ids.clientId)
     .maybeSingle();
-  ok(clientRow?.full_name === "PE Client", "a braider can still read a booked client's name");
+  ok(!baseRow, "a braider can NO LONGER read a client's profiles row directly");
 
-  const { data: strangerRow } = await asSnooper
+  const { data: strangerBase } = await asSnooper
     .from("profiles")
     .select("full_name")
     .eq("id", ids.clientId)
     .maybeSingle();
-  ok(!strangerRow, "an unrelated user still cannot read that client's row");
+  ok(!strangerBase, "an unrelated user still cannot read that client's row");
+
+  // The view: name + phone yes, secrets no.
+  const { data: view } = await asBraider
+    .from("braider_client_profiles")
+    .select("*")
+    .eq("id", ids.clientId)
+    .maybeSingle();
+  ok(view?.name === "PE Client", "the braider CAN see the client's name via the view");
+  ok(view?.phone === "07700900999", "the braider CAN see the client's phone via the view");
+  for (const col of ["stripe_customer_id", "referral_code", "date_of_birth"]) {
+    ok(!(col in (view ?? {})), `the view does NOT carry ${col}`);
+  }
+  ok(
+    "hair_type" in (view ?? {}) && view.hair_type === null,
+    "a client's SELF-reported hair type is not shared (null until a braider confirms)"
+  );
+
+  // Confirm the hair type as this braider, then re-read.
+  await admin
+    .from("profiles")
+    .update({
+      hair_type: "coily",
+      hair_type_source: "braider_confirmed",
+      hair_type_confirmed_by: ids.braiderUserId,
+      hair_type_confirmed_at: new Date().toISOString(),
+    })
+    .eq("id", ids.clientId);
+  const { data: view2 } = await asBraider
+    .from("braider_client_profiles")
+    .select("hair_type")
+    .eq("id", ids.clientId)
+    .maybeSingle();
+  ok(view2?.hair_type === "coily", "once braider-confirmed, the hair type IS visible in the view");
+
+  // A stranger gets nothing from the view at all.
+  const { data: strangerView } = await asSnooper
+    .from("braider_client_profiles")
+    .select("id")
+    .eq("id", ids.clientId)
+    .maybeSingle();
+  ok(!strangerView, "an unrelated user gets nothing from braider_client_profiles");
 
   console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} CHECK(S) FAILED.`);
 } finally {

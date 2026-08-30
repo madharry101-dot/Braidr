@@ -60,10 +60,11 @@ export async function POST(request: NextRequest) {
   const { data: braiders } = await query;
   const braiderIds = (braiders ?? []).map((b) => b.user_id);
 
+  // public_profiles, not profiles — see 20260911000001.
   const { data: profiles } = braiderIds.length
-    ? await supabase.from("profiles").select("id, display_name, full_name").in("id", braiderIds)
+    ? await supabase.from("public_profiles").select("id, name").in("id", braiderIds)
     : { data: [] };
-  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.display_name ?? p.full_name]));
+  const nameById = new Map((profiles ?? []).map((p) => [p.id, p.name]));
 
   const matched_braiders = (braiders ?? []).map((b) => ({
     id: b.id,

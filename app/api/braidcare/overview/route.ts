@@ -45,9 +45,11 @@ export async function GET() {
     supabase.from("services").select("id, name").in("id", serviceIds),
     supabase.from("braider_profiles").select("id, user_id").in("id", braiderIds),
   ]);
+  // public_profiles, not profiles — see 20260911000001. Only the braider's
+  // display name is needed on a BraidCare card.
   const { data: people } = await supabase
-    .from("profiles")
-    .select("id, display_name, full_name")
+    .from("public_profiles")
+    .select("id, name")
     .in(
       "id",
       (braiderProfiles ?? []).map((b) => b.user_id)
@@ -55,7 +57,7 @@ export async function GET() {
 
   const serviceName = new Map((services ?? []).map((s) => [s.id, s.name]));
   const braiderUser = new Map((braiderProfiles ?? []).map((b) => [b.id, b.user_id]));
-  const personName = new Map((people ?? []).map((p) => [p.id, p.display_name ?? p.full_name]));
+  const personName = new Map((people ?? []).map((p) => [p.id, p.name]));
 
   const annotated = (bookings ?? []).map((b) => {
     const liveAt = new Date(b.braidcare_live_at).getTime();

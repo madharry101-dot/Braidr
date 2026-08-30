@@ -30,23 +30,36 @@ export async function GET(request: Request, { params }: { params: { id: string }
     supabase.from("braider_profiles").select("user_id").eq("id", booking.braider_id).single(),
   ]);
 
-  const nameIds = [booking.client_id];
-  if (braiderProfile?.user_id) nameIds.push(braiderProfile.user_id);
-  const { data: people } = await supabase
-    .from("profiles")
-    .select("id, display_name, full_name, hair_type, hair_type_source")
-    .in("id", nameIds);
-  const byId = new Map((people ?? []).map((p) => [p.id, p]));
-  const personName = new Map(
-    (people ?? []).map((p) => [p.id, p.display_name ?? p.full_name] as const)
-  );
+  // Split by permission, not by convenience: the braider's name is public
+  // (public_profiles — see 20260911000001), the client's row is readable
+  // only by the braider they booked with (profiles_select_own_clients).
+  const [{ data: braiderPerson }, { data: clientPerson }] = await Promise.all([
+    braiderProfile?.user_id
+      ? supabase
+          .from("public_profiles")
+          .select("id, name")
+          .eq("id", braiderProfile.user_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("profiles")
+      .select("id, display_name, full_name, hair_type, hair_type_source")
+      .eq("id", booking.client_id)
+      .maybeSingle(),
+  ]);
+
+  const personName = new Map<string, string>();
+  if (braiderPerson) personName.set(braiderPerson.id, braiderPerson.name);
+  if (clientPerson) {
+    personName.set(clientPerson.id, clientPerson.display_name ?? clientPerson.full_name);
+  }
 
   // The braider viewing their own booking also gets the client's hair type,
   // for the post-appointment "confirm or update" step (Part 1). Readable
   // via profiles_select_own_clients. Clients don't need it here — their own
   // value lives on /settings.
   const isBraiderViewer = braiderProfile?.user_id === user.id;
-  const clientProfile = byId.get(booking.client_id);
+  const clientProfile = clientPerson;
 
   return ok({
     booking: {

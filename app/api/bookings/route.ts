@@ -169,15 +169,27 @@ export async function GET() {
     supabase.from("braider_profiles").select("id, user_id").in("id", braiderIds),
   ]);
 
+  // Two different reads, because they are two different permissions.
+  // A braider's name is public (public_profiles — see 20260911000001);
+  // a client's name is not, and is readable only by the braider they
+  // booked with, via profiles_select_own_clients on the base table. The
+  // old single query over `profiles` conflated them and pulled whole rows.
   const braiderUserIds = (braiderProfiles ?? []).map((b) => b.user_id);
-  const { data: people } = await supabase
-    .from("profiles")
-    .select("id, display_name, full_name")
-    .in("id", [...braiderUserIds, ...clientIds]);
+  const [{ data: braiderPeople }, { data: clientPeople }] = await Promise.all([
+    braiderUserIds.length
+      ? supabase.from("public_profiles").select("id, name").in("id", braiderUserIds)
+      : Promise.resolve({ data: [] }),
+    clientIds.length
+      ? supabase.from("profiles").select("id, display_name, full_name").in("id", clientIds)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   const serviceName = new Map((services ?? []).map((s) => [s.id, s.name]));
   const braiderUserById = new Map((braiderProfiles ?? []).map((b) => [b.id, b.user_id]));
-  const personName = new Map((people ?? []).map((p) => [p.id, p.display_name ?? p.full_name]));
+  const personName = new Map<string, string>([
+    ...(braiderPeople ?? []).map((p) => [p.id, p.name] as const),
+    ...(clientPeople ?? []).map((p) => [p.id, p.display_name ?? p.full_name] as const),
+  ]);
 
   const hydrated = bookings.map((b) => ({
     ...b,

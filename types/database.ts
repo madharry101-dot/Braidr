@@ -742,7 +742,25 @@ export interface Database {
         Relationships: [];
       };
     };
-    Views: Record<string, never>;
+    Views: {
+      // Public-facing subset of `profiles` for people who chose to be
+      // listed (active braiders, verified active experts). Read this —
+      // never the profiles table — when displaying someone other than the
+      // caller: the base table carries phone, date_of_birth,
+      // stripe_customer_id and referral_code. See 20260911000001.
+      public_profiles: {
+        Row: {
+          id: string;
+          name: string;
+          avatar_url: string | null;
+          city: string | null;
+          role: Role;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+    };
     Functions: {
       get_own_braidcare_photos: {
         Args: { p_session_id: string };

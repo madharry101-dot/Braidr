@@ -76,7 +76,9 @@ export async function GET(request: NextRequest) {
     const braiderIds = results.map((b) => b.id);
     const userIds = results.map((b) => b.user_id);
     const [{ data: profiles }, { data: services }, { data: verifiedTextures }] = await Promise.all([
-      supabase.from("profiles").select("id, display_name, full_name, avatar_url").in("id", userIds),
+      // public_profiles, not profiles — see 20260911000001. Search results
+      // need a name and an avatar, not the braider's phone number.
+      supabase.from("public_profiles").select("id, name, avatar_url").in("id", userIds),
       supabase
         .from("services")
         .select("braider_id, price_from")
@@ -109,7 +111,7 @@ export async function GET(request: NextRequest) {
       const p = profileByUser.get(b.user_id);
       return {
         ...b,
-        name: p?.display_name ?? p?.full_name ?? "Braidr braider",
+        name: p?.name ?? "Braidr braider",
         avatar_url: p?.avatar_url ?? null,
         price_from_pence: minPriceByBraider.get(b.id) ?? null,
         verified_textures: texturesByBraider.get(b.id) ?? [],

@@ -21,11 +21,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   if (!braider) return fail("BRAIDER_NOT_FOUND", "Braider not found.", 404);
 
+  // public_profiles, not profiles — see 20260911000001. A public profile
+  // page needs a name and an avatar, nothing else from that row.
   const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, full_name, avatar_url")
+    .from("public_profiles")
+    .select("name, avatar_url")
     .eq("id", braider.user_id)
-    .single();
+    .maybeSingle();
 
   const [{ data: services }, { data: reviews }, { data: photos }, { data: textures }] =
     await Promise.all([
@@ -56,7 +58,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const braiderWithName = {
     ...braider,
-    name: profile?.display_name ?? profile?.full_name ?? "Braidr braider",
+    name: profile?.name ?? "Braidr braider",
     avatar_url: profile?.avatar_url ?? null,
     portfolio_photos: (photos ?? []).map((p) => p.storage_path),
     verified_textures: (textures ?? []).map((t) => t.texture),

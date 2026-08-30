@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validate } from "@/lib/api/validate";
 import { reviewBlogPostSchema } from "@/lib/validations/blog";
+import { enqueueNewsletterForPost } from "@/lib/newsletter/enqueue";
 import { ok, fail } from "@/lib/api/response";
 
 // POST /api/blog/posts/:id/review — approve (-> published) or request
@@ -80,5 +81,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
     return fail("INTERNAL_ERROR", "Couldn't publish the post.", 500);
   }
 
-  return ok({ status: "published", published_at: now });
+  // Queue the newsletter rather than sending it here — publishing stays
+  // instant and can't fail because an email provider is struggling. The
+  // cron drains it. Idempotent, so a republish won't double-send.
+  const { queued } = await enqueueNewsletterForPost(admin, params.id);
+
+  return ok({ status: "published", published_at: now, newsletter_queued: queued });
 }

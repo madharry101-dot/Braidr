@@ -6,6 +6,7 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { LoadingBlock } from "@/components/ui/spinner";
 import { ProfileSection } from "@/components/settings/profile-section";
 import { NotificationsSection } from "@/components/settings/notifications-section";
+import { NewsletterSection } from "@/components/settings/newsletter-section";
 import { AccountSection } from "@/components/settings/account-section";
 import { BillingSection } from "@/components/settings/billing-section";
 import { BraidcareDataSection } from "@/components/settings/braidcare-data-section";
@@ -64,6 +65,7 @@ export default function SettingsPage() {
       )}
 
       <NotificationsSection />
+      <NewsletterSection />
       {role === "client" && <BraidcareDataSection />}
       <AccountSection email={profile.email} />
       {role !== "expert" && <BillingSection role={role} />}

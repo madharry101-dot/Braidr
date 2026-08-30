@@ -16,3 +16,4 @@ export const MARKETING_VERSION = "marketing-v1.0";
 export const COOKIES_VERSION = "cookies-v1.0";
 export const BRAIDCARE_PHOTO_CONSENT_VERSION = "braidcare-photo-v1.0";
 export const EXPERT_REFERRAL_SHARE_VERSION = "expert-referral-share-v1.0";
+export const NEWSLETTER_VERSION = "newsletter-v1.0";

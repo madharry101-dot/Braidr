@@ -30,7 +30,12 @@ export type ConsentType =
   | "marketing"
   | "cookies_analytics"
   | "braidcare_photo_processing"
-  | "expert_referral_share";
+  | "expert_referral_share"
+  | "newsletter";
+
+/** Where a newsletter opt-in was captured — the "how did you get my address" answer. */
+export type NewsletterConsentSource = "settings_page" | "blog_signup_form" | "registration";
+export type NewsletterSendStatus = "queued" | "sent" | "failed";
 
 export type ConditionFlag = {
   area: string;
@@ -166,6 +171,54 @@ export interface Database {
           verification_note: string | null;
           avg_rating: number | null;
           total_reviews: number;
+        }>;
+        Relationships: [];
+      };
+      newsletter_subscriptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          subscribed_at: string;
+          unsubscribed_at: string | null;
+          consent_source: NewsletterConsentSource;
+          unsubscribe_token: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          consent_source: NewsletterConsentSource;
+          subscribed_at?: string;
+          unsubscribed_at?: string | null;
+        };
+        Update: Partial<{
+          subscribed_at: string;
+          unsubscribed_at: string | null;
+          consent_source: NewsletterConsentSource;
+          unsubscribe_token: string;
+        }>;
+        Relationships: [];
+      };
+      newsletter_sends: {
+        Row: {
+          id: string;
+          post_id: string;
+          recipient_user_id: string;
+          status: NewsletterSendStatus;
+          attempts: number;
+          last_error: string | null;
+          sent_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          post_id: string;
+          recipient_user_id: string;
+        };
+        Update: Partial<{
+          status: NewsletterSendStatus;
+          attempts: number;
+          last_error: string | null;
+          sent_at: string | null;
         }>;
         Relationships: [];
       };

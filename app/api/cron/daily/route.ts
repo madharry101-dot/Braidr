@@ -5,6 +5,7 @@ import { runHmrcDeadlineReminders } from "@/lib/cron/hmrc-deadline-reminders";
 import { runPurgeBraidcarePhotos } from "@/lib/cron/purge-braidcare-photos";
 import { runAccountDeletion } from "@/lib/cron/account-deletion";
 import { runExpireStaleBookings } from "@/lib/cron/expire-stale-bookings";
+import { sendQueuedNewsletters } from "@/lib/cron/send-newsletter";
 import { ok, fail } from "@/lib/api/response";
 
 // GET /api/cron/daily — the only cron actually registered in vercel.json.
@@ -33,6 +34,9 @@ export async function GET(request: Request) {
     purge_braidcare_photos: () => runPurgeBraidcarePhotos(admin),
     account_deletion: () => runAccountDeletion(admin),
     expire_stale_bookings: () => runExpireStaleBookings(admin),
+    // Also has its own 15-minute cron; included here as a safety net so a
+    // queued send is never stranded if that one stops firing.
+    newsletter: () => sendQueuedNewsletters(),
   })) {
     try {
       results[name] = await task();

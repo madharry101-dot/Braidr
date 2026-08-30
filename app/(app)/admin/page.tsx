@@ -116,6 +116,11 @@ export default function AdminOverview() {
           { href: "/admin/disputes", title: "Disputes", body: `${disputes?.length ?? 0} open` },
           { href: "/admin/users", title: "Users", body: "Search, suspend, remove" },
           { href: "/admin/blog", title: "Blog", body: "Write, review and publish articles" },
+          {
+            href: "/admin/newsletter",
+            title: "Newsletter",
+            body: "Subscribers and consent audit log",
+          },
           { href: "/admin/referrals", title: "Referrals", body: "Record completed consultations" },
           { href: "/admin/announcements", title: "Announcements", body: "Message user segments" },
           { href: "/admin/moderation", title: "Moderation", body: "Content removal log" },

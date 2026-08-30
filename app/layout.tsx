@@ -1,12 +1,33 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
+import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { CookieBanner } from "@/components/legal/cookie-banner";
 
-// Geist ships in the repo already (app/fonts). Body copy only — display
-// headings use the CSS serif stack (--font-display, Georgia) defined in
-// tailwind.config.ts, which needs no network fetch.
+// Brand typefaces. Loaded through next/font/google rather than a <link> to
+// fonts.googleapis.com so they are self-hosted at build time — no
+// render-blocking third-party request and no layout shift. Same two
+// families and weights the design system specifies.
+const inter = Inter({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+// Hero headlines and major section titles ONLY, via .br-display. Never on
+// buttons, labels, badges, nav items or form fields — the two faces stay
+// legible as distinct roles precisely because this rule holds.
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  weight: ["700"],
+  variable: "--font-playfair",
+  display: "swap",
+});
+
+// Geist ships in the repo already (app/fonts). Retained as the body-copy
+// fallback for the screens not yet migrated to the brand system.
 const sans = localFont({
   src: [{ path: "./fonts/GeistVF.woff", weight: "100 900", style: "normal" }],
   variable: "--font-sans",
@@ -29,15 +50,18 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#2d1b35",
+  themeColor: "#1c1108", // --brand-deep
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en-GB" className={sans.variable}>
-      <body className="min-h-screen bg-cream text-plum">
+    <html lang="en-GB" className={`${inter.variable} ${playfair.variable} ${sans.variable}`}>
+      {/* Background and text colour come from the `body` rule in globals.css
+          (--brand-cream / --text-primary) rather than utility classes, so the
+          design system owns them in one place. */}
+      <body className="min-h-screen">
         <Providers>{children}</Providers>
         <CookieBanner />
       </body>

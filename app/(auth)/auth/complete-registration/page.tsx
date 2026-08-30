@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Select } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
+import { BrSelect } from "@/components/braidr-ui/form";
+import { BrButton } from "@/components/braidr-ui/button";
 import { Alert } from "@/components/ui/alert";
 import { ConsentFields } from "@/components/auth/consent-fields";
 import { api, ApiError } from "@/lib/api/client";
@@ -71,15 +71,15 @@ export default function CompleteRegistrationPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-plum">You&rsquo;re almost done</h1>
-      <p className="mt-1 text-sm text-slate">
+      <h1 className="br-display text-2xl">You&rsquo;re almost done</h1>
+      <p className="mt-1 br-muted text-sm">
         We&rsquo;ll set up your Braidr account using your Google name and email. Choose how
         you&rsquo;d like to use Braidr.
       </p>
 
       <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4" noValidate>
         {formError && <Alert tone="error">{formError}</Alert>}
-        <Select
+        <BrSelect
           label="I'm joining as"
           value={role}
           onChange={(e) => setRole(e.target.value as RoleOption)}
@@ -88,7 +88,7 @@ export default function CompleteRegistrationPage() {
           <option value="client">A client</option>
           <option value="braider">A braider</option>
           <option value="expert">A clinical expert</option>
-        </Select>
+        </BrSelect>
 
         <ConsentFields
           acceptedTerms={acceptedTerms}
@@ -99,15 +99,15 @@ export default function CompleteRegistrationPage() {
           disabled={pending}
         />
 
-        <Button
+        <BrButton
           type="submit"
-          size="lg"
+         
           loading={pending}
           disabled={!acceptedTerms}
           className="w-full"
         >
           Complete registration
-        </Button>
+        </BrButton>
       </form>
     </div>
   );

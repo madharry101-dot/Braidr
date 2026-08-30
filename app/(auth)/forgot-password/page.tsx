@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Input } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
+import { BrInput } from "@/components/braidr-ui/form";
+import { BrButton } from "@/components/braidr-ui/button";
 import { Alert } from "@/components/ui/alert";
 import { api, ApiError } from "@/lib/api/client";
 
@@ -33,15 +33,15 @@ export default function ForgotPasswordPage() {
   if (result?.google_only) {
     return (
       <div>
-        <h1 className="font-display text-2xl text-plum">Use Google to sign in</h1>
-        <p className="mt-3 text-sm text-slate">
-          The account for <span className="font-medium text-plum">{email}</span> was created with
+        <h1 className="br-display text-2xl">Use Google to sign in</h1>
+        <p className="mt-3 br-muted text-sm">
+          The account for <span className="font-medium">{email}</span> was created with
           Google and doesn&rsquo;t have a password. Go back and choose{" "}
-          <span className="font-medium text-plum">Continue with Google</span>.
+          <span className="font-medium">Continue with Google</span>.
         </p>
         <Link
           href="/login"
-          className="mt-6 inline-block font-medium text-teal-deep underline hover:text-plum"
+          className="mt-6 inline-block font-medium br-link underline"
         >
           Back to sign in
         </Link>
@@ -52,14 +52,14 @@ export default function ForgotPasswordPage() {
   if (result?.sent) {
     return (
       <div>
-        <h1 className="font-display text-2xl text-plum">Check your email</h1>
-        <p className="mt-3 text-sm text-slate">
-          If an account exists for <span className="font-medium text-plum">{email}</span>,
+        <h1 className="br-display text-2xl">Check your email</h1>
+        <p className="mt-3 br-muted text-sm">
+          If an account exists for <span className="font-medium">{email}</span>,
           we&rsquo;ve sent a link to reset your password. The link expires in one hour.
         </p>
         <Link
           href="/login"
-          className="mt-6 inline-block font-medium text-teal-deep underline hover:text-plum"
+          className="mt-6 inline-block font-medium br-link underline"
         >
           Back to sign in
         </Link>
@@ -69,13 +69,13 @@ export default function ForgotPasswordPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-plum">Reset your password</h1>
-      <p className="mt-1 text-sm text-slate">
+      <h1 className="br-display text-2xl">Reset your password</h1>
+      <p className="mt-1 br-muted text-sm">
         Enter your email and we&rsquo;ll send you a reset link.
       </p>
       <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4" noValidate>
         {error && <Alert tone="error">{error}</Alert>}
-        <Input
+        <BrInput
           label="Email"
           type="email"
           autoComplete="email"
@@ -83,12 +83,12 @@ export default function ForgotPasswordPage() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <Button type="submit" size="lg" loading={pending} className="w-full">
+        <BrButton type="submit" loading={pending} className="w-full">
           Send reset link
-        </Button>
+        </BrButton>
       </form>
-      <p className="mt-6 text-center text-sm text-slate">
-        <Link href="/login" className="font-medium text-teal-deep underline hover:text-plum">
+      <p className="mt-6 text-center br-muted text-sm">
+        <Link href="/login" className="font-medium br-link underline">
           Back to sign in
         </Link>
       </p>

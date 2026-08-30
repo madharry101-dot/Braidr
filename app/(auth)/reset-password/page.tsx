@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
+import { BrInput } from "@/components/braidr-ui/form";
+import { BrButton } from "@/components/braidr-ui/button";
 import { Alert } from "@/components/ui/alert";
 import { createClient } from "@/lib/supabase/client";
 
@@ -59,8 +59,8 @@ export default function ResetPasswordPage() {
   if (done) {
     return (
       <div>
-        <h1 className="font-display text-2xl text-plum">Password updated</h1>
-        <p className="mt-3 text-sm text-slate">Taking you to the sign-in page&hellip;</p>
+        <h1 className="br-display text-2xl">Password updated</h1>
+        <p className="mt-3 br-muted text-sm">Taking you to the sign-in page&hellip;</p>
       </div>
     );
   }
@@ -68,13 +68,13 @@ export default function ResetPasswordPage() {
   if (!linkValid) {
     return (
       <div>
-        <h1 className="font-display text-2xl text-plum">Link expired</h1>
-        <p className="mt-3 text-sm text-slate">
+        <h1 className="br-display text-2xl">Link expired</h1>
+        <p className="mt-3 br-muted text-sm">
           This reset link is invalid or has already been used. Request a new one.
         </p>
         <Link
           href="/forgot-password"
-          className="mt-6 inline-block font-medium text-teal-deep underline hover:text-plum"
+          className="mt-6 inline-block font-medium br-link underline"
         >
           Request a new link
         </Link>
@@ -84,10 +84,10 @@ export default function ResetPasswordPage() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-plum">Choose a new password</h1>
+      <h1 className="br-display text-2xl">Choose a new password</h1>
       <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4" noValidate>
         {error && <Alert tone="error">{error}</Alert>}
-        <Input
+        <BrInput
           label="New password"
           type="password"
           autoComplete="new-password"
@@ -97,7 +97,7 @@ export default function ResetPasswordPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <Input
+        <BrInput
           label="Confirm new password"
           type="password"
           autoComplete="new-password"
@@ -105,9 +105,9 @@ export default function ResetPasswordPage() {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
         />
-        <Button type="submit" size="lg" loading={pending} className="w-full">
+        <BrButton type="submit" loading={pending} className="w-full">
           Update password
-        </Button>
+        </BrButton>
       </form>
     </div>
   );

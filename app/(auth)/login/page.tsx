@@ -4,8 +4,8 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Input } from "@/components/ui/field";
-import { Button } from "@/components/ui/button";
+import { BrInput } from "@/components/braidr-ui/form";
+import { BrButton } from "@/components/braidr-ui/button";
 import { Alert } from "@/components/ui/alert";
 import { ContinueWithGoogle, OrDivider } from "@/components/auth/continue-with-google";
 import { api, ApiError } from "@/lib/api/client";
@@ -51,8 +51,10 @@ function LoginForm() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-plum">Sign in</h1>
-      <p className="mt-1 text-sm text-slate">Welcome back to Braidr.</p>
+      <h1 className="br-display text-2xl">Sign in</h1>
+      <p className="mt-1 text-sm" style={{ color: "var(--text-muted)" }}>
+        Welcome back to Braidr.
+      </p>
 
       {oauthFailed && (
         <div className="mt-4">
@@ -74,7 +76,7 @@ function LoginForm() {
 
       <form onSubmit={onSubmit} className="mt-3 flex flex-col gap-4" noValidate>
         {error && <Alert tone="error">{error}</Alert>}
-        <Input
+        <BrInput
           label="Email"
           type="email"
           autoComplete="email"
@@ -82,7 +84,7 @@ function LoginForm() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <Input
+        <BrInput
           label="Password"
           type="password"
           autoComplete="current-password"
@@ -92,18 +94,18 @@ function LoginForm() {
           error={fieldError}
         />
         <div className="text-right text-sm">
-          <Link href="/forgot-password" className="text-teal-deep underline hover:text-plum">
+          <Link href="/forgot-password" className="underline" style={{ color: "var(--gold-ink)" }}>
             Forgot password?
           </Link>
         </div>
-        <Button type="submit" size="lg" loading={pending} className="w-full">
+        <BrButton type="submit" loading={pending} className="w-full">
           Sign in
-        </Button>
+        </BrButton>
       </form>
 
-      <p className="mt-6 text-center text-sm text-slate">
+      <p className="mt-6 text-center text-sm" style={{ color: "var(--text-muted)" }}>
         New to Braidr?{" "}
-        <Link href="/register" className="font-medium text-teal-deep underline hover:text-plum">
+        <Link href="/register" className="font-medium underline" style={{ color: "var(--gold-ink)" }}>
           Create an account
         </Link>
       </p>

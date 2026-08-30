@@ -33,7 +33,7 @@ export function ContinueWithGoogle({ label = "Continue with Google" }: { label?:
         type="button"
         onClick={start}
         disabled={pending}
-        className="flex min-h-[44px] w-full items-center justify-center gap-3 rounded border border-mist bg-white px-3 py-2 text-sm font-medium text-plum hover:bg-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal disabled:opacity-60"
+        className="br-btn br-btn-ghost br-btn-sm w-full"
       >
         <GoogleGlyph />
         {pending ? "Redirecting…" : label}
@@ -67,10 +67,10 @@ function GoogleGlyph() {
 
 export function OrDivider() {
   return (
-    <div className="flex items-center gap-3 py-1 text-xs text-slate">
-      <span className="h-px flex-1 bg-mist" />
+    <div className="flex items-center gap-3 py-1 text-xs" style={{ color: "var(--text-muted)" }}>
+      <span className="h-px flex-1" style={{ background: "var(--brand-sand)" }} />
       or
-      <span className="h-px flex-1 bg-mist" />
+      <span className="h-px flex-1" style={{ background: "var(--brand-sand)" }} />
     </div>
   );
 }

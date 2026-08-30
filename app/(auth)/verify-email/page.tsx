@@ -33,7 +33,7 @@ function VerifyEmail() {
     return (
       <div className="flex flex-col items-center gap-3 py-4">
         <span className="h-6 w-6 animate-spin rounded-full border-2 border-plum border-t-transparent" />
-        <p className="text-sm text-slate">Confirming your email&hellip;</p>
+        <p className="br-muted text-sm">Confirming your email&hellip;</p>
       </div>
     );
   }
@@ -41,11 +41,11 @@ function VerifyEmail() {
   if (state === "ok") {
     return (
       <div>
-        <h1 className="font-display text-2xl text-plum">Email confirmed</h1>
-        <p className="mt-3 text-sm text-slate">Your account is active. You can sign in now.</p>
+        <h1 className="br-display text-2xl">Email confirmed</h1>
+        <p className="mt-3 br-muted text-sm">Your account is active. You can sign in now.</p>
         <Link
           href="/login"
-          className="mt-6 inline-block font-medium text-teal-deep underline hover:text-plum"
+          className="mt-6 inline-block font-medium br-link underline"
         >
           Go to sign in
         </Link>
@@ -55,7 +55,7 @@ function VerifyEmail() {
 
   return (
     <div>
-      <h1 className="font-display text-2xl text-plum">Couldn&rsquo;t confirm your email</h1>
+      <h1 className="br-display text-2xl">Couldn&rsquo;t confirm your email</h1>
       <Alert tone="error" className="mt-4">
         {state === "missing"
           ? "This page needs a confirmation link from your email."
@@ -63,7 +63,7 @@ function VerifyEmail() {
       </Alert>
       <Link
         href="/login"
-        className="mt-6 inline-block font-medium text-teal-deep underline hover:text-plum"
+        className="mt-6 inline-block font-medium br-link underline"
       >
         Back to sign in
       </Link>

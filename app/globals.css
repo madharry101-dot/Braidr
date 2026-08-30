@@ -3,21 +3,60 @@
 @tailwind utilities;
 
 /*
- * Braidr design tokens. Palette from the concept document:
- * plum (ink), gold (accent), teal (secondary), cream (page).
- * Every text pairing below meets WCAG 2.1 AA (>= 4.5:1) on its
- * intended background — PRD 6.4.
+ * ────────────────────────────────────────────────────────────────
+ * BRAIDR BRAND DESIGN SYSTEM v1.0 — Phase 1, locked.
+ * Do not modify these token values without design sign-off.
+ * ────────────────────────────────────────────────────────────────
  */
 :root {
-  --color-cream: #faf8f6; /* page background */
-  --color-surface: #ffffff; /* cards, inputs */
-  --color-plum: #2d1b35; /* primary ink + primary button */
+  /* Brand colours — locked */
+  --brand-deep: #1c1108; /* near-black warm brown — hero backgrounds, primary buttons */
+  --brand-rich: #2e1a0e; /* deep cocoa — dark section fills, dark cards */
+  --brand-gold: #c18e3a; /* warm gold — primary accent, CTAs, eyebrows. Max 1 per section. */
+  --brand-cream: #f9f4ed; /* warm off-white — body backgrounds */
+  --brand-sand: #e8dece; /* muted sand — secondary surfaces, card fills */
+  --brand-sage: #4a6741; /* muted green — BraidCare healthy indicators only */
+  --brand-rust: #9b3d12; /* rust — BraidCare alerts, error states only */
+
+  --text-primary: #1c1108;
+  --text-inverse: #f9f4ed;
+  --text-muted: #7a6a5a;
+  --text-gold: #c18e3a;
+
+  /* Documented extensions — approved in Step 1, not in the original brief */
+  --gold-ink: #8a6220; /* small gold text (<=14px) on light backgrounds only — brand-gold
+                          fails WCAG AA at 2.6:1 there; this clears AA at 5.0:1 */
+  --gold-hover: #a87b2e; /* gold button hover — brand-gold darkened, no new hue */
+  --rust-hover: #7e310e; /* destructive button hover — brand-rust darkened, no new hue */
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 3px rgba(28, 17, 8, 0.08);
+  --shadow-md: 0 4px 12px rgba(28, 17, 8, 0.1);
+  --shadow-lg: 0 8px 32px rgba(28, 17, 8, 0.14);
+}
+
+/*
+ * Pre-redesign v1 palette (plum / teal / mist). Retained because the
+ * authenticated screens that have not yet been migrated to the brand
+ * system above still reference these through the Tailwind colour
+ * aliases in tailwind.config.ts (text-plum, border-mist, text-teal…).
+ * Removing them would break every one of those screens.
+ */
+:root {
+  --color-cream: #faf8f6;
+  --color-surface: #ffffff;
+  --color-plum: #2d1b35;
   --color-plum-hover: #3f2a4b;
-  --color-slate: #4a4a5a; /* body / muted text — ~7:1 on cream */
-  --color-mist: #e8e2ef; /* borders, dividers */
-  --color-gold: #c9a84c; /* decorative accent, focus glow */
-  --color-gold-deep: #7c5e12; /* gold used as text/icon on light — AA */
-  --color-teal: #2a7f7f; /* secondary actions, links */
+  --color-slate: #4a4a5a;
+  --color-mist: #e8e2ef;
+  --color-gold: #c9a84c;
+  --color-gold-deep: #7c5e12;
+  --color-teal: #2a7f7f;
   --color-teal-deep: #1f5f5f;
   --color-success: #1e6b3a;
   --color-success-bg: #eafaf1;
@@ -28,9 +67,9 @@
   --radius: 0.625rem;
   --shadow-card: 0 1px 2px rgba(45, 27, 53, 0.06), 0 4px 16px rgba(45, 27, 53, 0.06);
 
-  /* Display face for headings. Georgia is the deliberate v1 choice — a
-     web-safe serif that gives Braidr an editorial feel with zero font
-     loading. Swap this one line when a licensed display font is picked. */
+  /* Display face for the not-yet-migrated screens. Playfair Display is
+     reserved for hero headlines and major section titles on redesigned
+     pages only, via .br-display — it is never applied globally. */
   --font-display: Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
@@ -43,9 +82,10 @@ html {
 }
 
 body {
-  background: var(--color-cream);
-  color: var(--color-plum);
+  background: var(--brand-cream);
+  color: var(--text-primary);
   font-family:
+    var(--font-inter),
     var(--font-sans),
     ui-sans-serif,
     system-ui,
@@ -59,9 +99,9 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Visible focus ring everywhere — keyboard nav, PRD 6.4 */
+/* Visible focus ring everywhere — design system, WCAG 2.4.7 */
 :focus-visible {
-  outline: 2px solid var(--color-teal);
+  outline: 2px solid var(--brand-gold);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -69,5 +109,701 @@ body {
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   BRAIDR COMPONENT LAYER — .br-*
+   Ported from the approved Phase 1 component library. Plain CSS,
+   not Tailwind: these class names are the approved source of truth
+   and are consumed by components/braidr-ui/*.
+   ═══════════════════════════════════════════════════════════════ */
+
+.br-display {
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* ── BUTTONS ──────────────────────────────────────────────── */
+.br-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 12px 24px;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  transition:
+    background-color 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    filter 0.15s ease;
+}
+.br-btn:disabled,
+.br-btn[aria-disabled="true"] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.br-btn-primary {
+  background: var(--brand-deep);
+  color: var(--text-inverse);
+}
+.br-btn-primary:hover:not(:disabled) {
+  background: var(--brand-rich);
+  box-shadow: var(--shadow-md);
+}
+
+.br-btn-ghost {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1.5px solid var(--brand-deep);
+}
+.br-btn-ghost:hover:not(:disabled) {
+  background: var(--brand-sand);
+}
+
+/* Ghost on dark surfaces — hero secondary CTA */
+.br-btn-ghost-inv {
+  background: transparent;
+  color: var(--text-inverse);
+  border: 1.5px solid rgba(249, 244, 237, 0.5);
+}
+.br-btn-ghost-inv:hover:not(:disabled) {
+  background: rgba(249, 244, 237, 0.1);
+}
+
+.br-btn-gold {
+  background: var(--brand-gold);
+  color: var(--brand-deep);
+}
+.br-btn-gold:hover:not(:disabled) {
+  background: var(--gold-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.br-btn-danger {
+  background: var(--brand-rust);
+  color: var(--text-inverse);
+}
+.br-btn-danger:hover:not(:disabled) {
+  background: var(--rust-hover);
+}
+
+.br-btn-sm {
+  min-height: 40px;
+  padding: 10px 18px;
+  font-size: 0.875rem;
+}
+
+/* Animation 8 — button hover / press micro-interaction */
+.br-btn-primary:hover:not(:disabled) {
+  transform: scale(1.02);
+  filter: brightness(1.08);
+}
+.br-btn-gold:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.br-btn-primary:active:not(:disabled),
+.br-btn-gold:active:not(:disabled),
+.br-btn-ghost:active:not(:disabled),
+.br-btn-ghost-inv:active:not(:disabled) {
+  transform: scale(0.98);
+  transition: transform 80ms ease;
+}
+
+.br-spin {
+  animation: br-spin 1s linear infinite;
+}
+@keyframes br-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── FORM ELEMENTS ────────────────────────────────────────── */
+.br-label {
+  display: block;
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.br-field {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 1.5px solid var(--brand-sand);
+  border-radius: var(--radius-sm);
+  background: var(--brand-cream);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 1rem;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.br-field::placeholder {
+  color: var(--text-muted);
+}
+.br-field:focus {
+  outline: none;
+  border-color: var(--brand-gold);
+  box-shadow: 0 0 0 3px rgba(193, 142, 58, 0.2);
+}
+.br-field-error,
+.br-field[aria-invalid="true"] {
+  border-color: var(--brand-rust);
+}
+.br-field-error:focus,
+.br-field[aria-invalid="true"]:focus {
+  border-color: var(--brand-rust);
+  box-shadow: 0 0 0 3px rgba(155, 61, 18, 0.18);
+}
+.br-field:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--brand-sand);
+}
+
+.br-help {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+.br-err {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 0.875rem;
+  color: var(--brand-rust);
+  font-weight: 500;
+}
+
+.br-check {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 1.5px solid var(--brand-sand);
+  border-radius: var(--radius-sm);
+  background: var(--brand-cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.br-check-on {
+  background: var(--brand-deep);
+  border-color: var(--brand-deep);
+  color: var(--text-inverse);
+}
+
+.br-radio {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 1.5px solid var(--brand-sand);
+  border-radius: var(--radius-full);
+  background: var(--brand-cream);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.br-radio-on {
+  border-color: var(--brand-deep);
+  border-width: 2px;
+}
+.br-radio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--brand-deep);
+}
+
+.br-drop {
+  border: 2px dashed var(--brand-sand);
+  border-radius: var(--radius-lg);
+  background: var(--brand-cream);
+  padding: 32px 20px;
+  text-align: center;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.br-drop-active {
+  border-color: var(--brand-gold);
+  background: var(--brand-sand);
+}
+.br-drop-ok {
+  border-style: solid;
+  border-color: var(--brand-sage);
+}
+.br-drop-err {
+  border-style: solid;
+  border-color: var(--brand-rust);
+}
+
+.br-role {
+  flex: 1;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  padding: 20px;
+  border: 1.5px solid var(--brand-sand);
+  border-radius: var(--radius-lg);
+  background: var(--brand-cream);
+  position: relative;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.br-role:hover {
+  border-color: var(--brand-gold);
+}
+.br-role-on {
+  border: 2px solid var(--brand-gold);
+  background: var(--brand-sand);
+  padding: 19px;
+}
+
+/* ── CARDS ────────────────────────────────────────────────── */
+.br-card {
+  background: var(--brand-cream);
+  border: 1px solid var(--brand-sand);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  transition:
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
+}
+
+/* Animation 6 — braider card lift. Built here for /braiders search
+   results; not used on the homepage. */
+.br-card-lift {
+  transition:
+    transform 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.br-card-lift:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Animation 7 — border reveal. No lift on dark backgrounds. */
+.br-card-dark {
+  background: var(--brand-rich);
+  border: 1.5px solid rgba(193, 142, 58, 0.18);
+  color: var(--text-inverse);
+  transition: border-color 200ms ease;
+}
+.br-card-dark:hover {
+  border-color: var(--brand-gold);
+}
+
+/* ── NAVIGATION ───────────────────────────────────────────── */
+.br-navwrap {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  padding: 16px;
+  transition: background-color 300ms ease;
+}
+
+/* On the homepage the nav band starts flush with the dark hero, then
+   drops to transparent so the pill floats over the page once scrolled —
+   the pill itself goes dark-to-cream at the same time. */
+.br-navwrap-hero {
+  background: var(--brand-deep);
+}
+.br-navwrap-hero.br-navwrap-scrolled {
+  background: transparent;
+}
+
+.br-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  max-width: 1120px;
+  margin: 0 auto;
+  border-radius: var(--radius-full);
+  background: rgba(46, 26, 14, 0.88);
+  border: 1px solid rgba(193, 142, 58, 0.28);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(10px);
+  transition:
+    background-color 300ms ease,
+    box-shadow 300ms ease,
+    backdrop-filter 300ms ease,
+    border-color 300ms ease;
+}
+
+/* Animation 5 — adapted for this dark-hero variant: dark at rest,
+   cream once the hero has scrolled past. */
+.br-nav-scrolled {
+  background: rgba(249, 244, 237, 0.92);
+  border-color: var(--brand-sand);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(12px);
+}
+
+.br-wordmark {
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
+  font-weight: 700;
+  font-size: 1.375rem;
+  color: var(--text-inverse);
+  letter-spacing: -0.01em;
+  padding: 0 12px;
+  text-decoration: none;
+  transition: color 300ms ease;
+}
+
+/* Wordmark on a light surface — auth and document pages. */
+.br-wordmark-ink {
+  color: var(--text-primary);
+}
+
+/* Text helpers. --gold-ink (EXT-1) rather than --brand-gold, because
+   these are small text on light backgrounds where full-strength gold
+   measures 2.6:1 and fails WCAG AA. */
+.br-muted {
+  color: var(--text-muted);
+}
+.br-link {
+  color: var(--gold-ink);
+}
+
+.br-navlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-inverse);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 300ms ease;
+}
+.br-navlink:hover {
+  background: rgba(249, 244, 237, 0.1);
+}
+.br-navlink-outline {
+  border-color: rgba(193, 142, 58, 0.3);
+}
+
+.br-nav-scrolled .br-wordmark,
+.br-nav-scrolled .br-navlink {
+  color: var(--text-primary);
+}
+.br-nav-scrolled .br-navlink:hover {
+  background: var(--brand-sand);
+}
+.br-nav-scrolled .br-navlink-outline {
+  border-color: var(--brand-sand);
+}
+
+/* The nav's join CTA is gold against both nav states. */
+.br-nav .br-btn-primary {
+  background: var(--brand-gold);
+  color: var(--brand-deep);
+}
+.br-nav .br-btn-primary:hover:not(:disabled) {
+  background: var(--gold-hover);
+}
+
+.br-nav-mid {
+  display: flex;
+  gap: 6px;
+  margin: 0 auto;
+}
+
+/* Centre links collapse below 880px — wordmark, sign-in and join CTA
+   remain, which is the approved narrow-viewport treatment. */
+@media (max-width: 879px) {
+  .br-nav-collapse {
+    display: none;
+  }
+  .br-nav-mid {
+    margin: 0;
+  }
+}
+
+.br-tabbar {
+  display: flex;
+  background: var(--brand-cream);
+  border-top: 1px solid var(--brand-sand);
+  box-shadow: var(--shadow-lg);
+}
+.br-tab {
+  flex: 1;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 8px 4px;
+  text-decoration: none;
+}
+.br-tab-on {
+  color: var(--brand-gold);
+  font-weight: 600;
+}
+
+/* ── BADGES AND CHIPS ─────────────────────────────────────── */
+.br-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.br-chip-gold {
+  background: var(--brand-gold);
+  color: var(--brand-deep);
+  font-weight: 600;
+}
+.br-chip-sage {
+  background: var(--brand-sage);
+  color: var(--text-inverse);
+}
+.br-chip-sand {
+  background: var(--brand-sand);
+  color: var(--text-primary);
+}
+.br-chip-rust {
+  background: var(--brand-rust);
+  color: var(--text-inverse);
+}
+.br-chip-deep {
+  background: var(--brand-deep);
+  color: var(--text-inverse);
+}
+.br-chip-price {
+  background: var(--brand-sand);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.br-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--brand-sand);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--gold-ink);
+}
+.br-eyebrow-dark {
+  border-color: rgba(193, 142, 58, 0.4);
+  color: var(--brand-gold);
+}
+
+/* ── IMAGE CONTAINERS ─────────────────────────────────────── */
+.br-img {
+  background: linear-gradient(135deg, var(--brand-sand) 0%, var(--brand-rich) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: hidden;
+}
+.br-img-note {
+  font-style: italic;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--text-inverse);
+  background: rgba(28, 17, 8, 0.72);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  max-width: 240px;
+}
+
+/* ── SKELETONS ────────────────────────────────────────────── */
+@keyframes br-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.br-skel {
+  background: var(--brand-sand);
+  border-radius: var(--radius-sm);
+  animation: br-pulse 1.5s ease-in-out infinite;
+}
+.br-skel-circle {
+  border-radius: var(--radius-full);
+}
+
+/* ── PAGE AND SECTION LAYOUT ──────────────────────────────── */
+.br-wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+.br-sec {
+  padding: 64px 0;
+}
+@media (min-width: 768px) {
+  .br-sec {
+    padding: 96px 0;
+  }
+}
+
+.br-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 32px;
+  align-items: center;
+}
+@media (min-width: 900px) {
+  .br-split {
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+  }
+  .br-split-rev .br-split-media {
+    order: -1;
+  }
+}
+
+.br-cards3 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+@media (min-width: 820px) {
+  .br-cards3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.br-h1 {
+  font-size: 2.5rem;
+  line-height: 1.06;
+}
+.br-h2 {
+  font-size: 2rem;
+  line-height: 1.12;
+}
+.br-lead {
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+}
+@media (min-width: 768px) {
+  .br-h1 {
+    font-size: 4.5rem;
+  }
+  .br-h2 {
+    font-size: 3rem;
+  }
+  .br-lead {
+    font-size: 1.125rem;
+  }
+}
+
+.br-proof {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 20px;
+  scrollbar-width: none;
+}
+.br-proof::-webkit-scrollbar {
+  display: none;
+}
+@media (min-width: 900px) {
+  .br-proof {
+    flex-wrap: wrap;
+    justify-content: center;
+    overflow: visible;
+  }
+}
+
+/* ── HERO ENTRANCE — motion brief, Animation 3 ────────────────
+   Deliberately CSS rather than Framer Motion. The hero is above the
+   fold, so a JS-driven `initial` state would either ship opacity:0 in
+   the server HTML (breaking motion-brief Rule 3) or flash the content
+   visible before hiding it. A keyframe with `animation-fill-mode: both`
+   holds the hidden state from the very first paint, needs no JS, and is
+   switched off wholesale by the reduced-motion block below.
+   Same durations, easing and sequencing that were reviewed. */
+@keyframes br-enter-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes br-enter-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--br-enter-y, 20px));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.br-enter {
+  animation: br-enter-up 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  animation-delay: var(--br-enter-delay, 0s);
+}
+.br-enter-fade {
+  animation-name: br-enter-fade;
+}
+
+/* ── REDUCED MOTION ───────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

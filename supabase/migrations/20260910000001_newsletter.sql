@@ -71,7 +71,28 @@ create policy "newsletter_update_own"
 -- consent_events, which is append-only. The table above is current state;
 -- consent_events is the audit trail, and 'newsletter' is added to its
 -- allowed types here.
-alter table public.consent_events drop constraint consent_events_consent_type_check;
+-- Dropped by lookup rather than by name: the original is an inline column
+-- check, so its name is whatever Postgres generated. Asserting a guessed
+-- name here would fail on a database where it differs.
+do $$
+declare
+  constraint_name text;
+begin
+  select con.conname into constraint_name
+  from pg_constraint con
+  join pg_class rel on rel.oid = con.conrelid
+  join pg_namespace nsp on nsp.oid = rel.relnamespace
+  where nsp.nspname = 'public'
+    and rel.relname = 'consent_events'
+    and con.contype = 'c'
+    and pg_get_constraintdef(con.oid) ilike '%consent_type%'
+  limit 1;
+
+  if constraint_name is not null then
+    execute format('alter table public.consent_events drop constraint %I', constraint_name);
+  end if;
+end $$;
+
 alter table public.consent_events add constraint consent_events_consent_type_check
   check (consent_type in (
     'terms_and_privacy',

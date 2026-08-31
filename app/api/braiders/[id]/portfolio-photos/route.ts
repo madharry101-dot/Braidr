@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ok, fail } from "@/lib/api/response";
 import { isHairTexture, type HairTexture } from "@/lib/hair/textures";
+import { sanitiseUploadedImage } from "@/lib/images/sanitise";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -57,6 +58,29 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
   }
 
+  // R-02: re-encode before storage. This bucket is PUBLIC — objects sit at
+  // stable unauthenticated URLs — and braiders photograph their work where
+  // they do it, which for most of them is home. Storing the originals
+  // published the EXIF GPS of a braider's front door to anyone who opened
+  // the image. Sanitising also proves the bytes decode as an image, so the
+  // client's declared MIME type is no longer trusted (R-05).
+  //
+  // All files are sanitised up front so a bad one at index 3 cannot abort
+  // the request after 0-2 were already written to a public bucket.
+  const sanitised = [];
+  for (const file of files) {
+    const image = await sanitiseUploadedImage(await file.arrayBuffer());
+    if (!image) {
+      return fail(
+        "VALIDATION_ERROR",
+        "Each photo must be a valid JPEG, PNG, or WEBP image.",
+        422,
+        "photos"
+      );
+    }
+    sanitised.push(image);
+  }
+
   const admin = createAdminClient();
   const rows: {
     braider_id: string;
@@ -64,12 +88,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     texture: HairTexture | null;
     sort_order: number;
   }[] = [];
-  for (const [index, file] of files.entries()) {
-    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-    const path = `${user.id}/${Date.now()}-${index}.${ext}`;
+  for (const [index, image] of sanitised.entries()) {
+    const path = `${user.id}/${Date.now()}-${index}.${image.ext}`;
     const { error: uploadError } = await admin.storage
       .from("portfolio-photos")
-      .upload(path, await file.arrayBuffer(), { contentType: file.type });
+      .upload(path, image.buffer, { contentType: image.contentType });
     if (uploadError)
       return fail("INTERNAL_ERROR", `Failed to upload photo: ${uploadError.message}`, 500);
     rows.push({

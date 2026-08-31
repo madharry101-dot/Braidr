@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ok, fail } from "@/lib/api/response";
 import { checkRateLimit } from "@/lib/api/rate-limit";
+import { sanitiseUploadedImage } from "@/lib/images/sanitise";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -55,6 +56,30 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
   }
 
+  // R-02: re-encode every photo before it touches storage. Scalp photos are
+  // taken at home on a phone, so the originals carry EXIF GPS — the client's
+  // home coordinates — and were previously stored intact for the full 90-day
+  // retention, contradicting Privacy Policy §4.2. Sanitising also proves the
+  // bytes decode as a real image, so the client's declared MIME type is no
+  // longer trusted (R-05).
+  //
+  // Done for ALL files up front: sanitising inside the upload loop would let
+  // a bad file at index 3 abort the request after 0-2 were already written,
+  // orphaning them in the bucket with no row referencing them.
+  const sanitised = [];
+  for (const file of files) {
+    const image = await sanitiseUploadedImage(await file.arrayBuffer());
+    if (!image) {
+      return fail(
+        "VALIDATION_ERROR",
+        "Each photo must be a valid JPEG, PNG, or WEBP image.",
+        422,
+        "photos"
+      );
+    }
+    sanitised.push(image);
+  }
+
   // Uploaded via the admin client: the scalp-photos bucket's storage RLS
   // requires the path's first folder segment to equal auth.uid(), which the
   // regular session client would satisfy too — using admin here purely so
@@ -63,12 +88,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const admin = createAdminClient();
   const uploadedPaths: string[] = [];
 
-  for (const [index, file] of files.entries()) {
-    const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-    const path = `braidcare/${user.id}/${session.id}/${Date.now()}-${index}.${ext}`;
+  for (const [index, image] of sanitised.entries()) {
+    const path = `braidcare/${user.id}/${session.id}/${Date.now()}-${index}.${image.ext}`;
     const { error: uploadError } = await admin.storage
       .from("scalp-photos")
-      .upload(path, await file.arrayBuffer(), { contentType: file.type });
+      .upload(path, image.buffer, { contentType: image.contentType });
     if (uploadError) {
       return fail("INTERNAL_ERROR", `Failed to upload photo: ${uploadError.message}`, 500);
     }

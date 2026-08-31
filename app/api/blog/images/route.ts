@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sanitiseUploadedImage } from "@/lib/images/sanitise";
 import { publicStorageUrl } from "@/lib/storage";
 import { ok, fail } from "@/lib/api/response";
 
@@ -37,20 +38,26 @@ export async function POST(request: NextRequest) {
     return fail("VALIDATION_ERROR", "Images must be 5MB or smaller.", 422, "image");
   }
 
-  const ext =
-    file.type === "image/png"
-      ? "png"
-      : file.type === "image/webp"
-        ? "webp"
-        : file.type === "image/gif"
-          ? "gif"
-          : "jpg";
-  const path = `${user.id}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+  // R-02: re-encode before storage. This bucket is PUBLIC, and an editorial
+  // image can just as easily be a photo off someone's phone carrying EXIF
+  // GPS. Also proves the bytes decode as an image, so the client's declared
+  // MIME type is no longer trusted (R-05). GIF stays supported here.
+  const image = await sanitiseUploadedImage(await file.arrayBuffer(), { allowGif: true });
+  if (!image) {
+    return fail(
+      "VALIDATION_ERROR",
+      "That file isn't a valid JPEG, PNG, WEBP or GIF image.",
+      422,
+      "image"
+    );
+  }
+
+  const path = `${user.id}/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${image.ext}`;
 
   const admin = createAdminClient();
   const { error } = await admin.storage
     .from("blog-images")
-    .upload(path, await file.arrayBuffer(), { contentType: file.type });
+    .upload(path, image.buffer, { contentType: image.contentType });
   if (error) {
     console.error("[blog/images] upload failed", error);
     return fail("INTERNAL_ERROR", `Couldn't upload the image: ${error.message}`, 500);

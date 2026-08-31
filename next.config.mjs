@@ -38,6 +38,17 @@ const CSP_REPORT_ONLY = [
   "font-src 'self'",
   // React sets element style attributes (~90 per page); there are no <style>
   // blocks. 'unsafe-inline' here is far weaker a concession than in script-src.
+  //
+  // ⚠️ DO NOT DROP 'unsafe-inline' HERE WITHOUT READING
+  // components/blog/category-filter.tsx FIRST. It injects a real inline
+  // <style> element after hydration to hide non-matching posts. Because it
+  // renders in the browser rather than on the server, it is absent from the
+  // prerendered HTML, no static scan of the markup will find it, and a nonce
+  // cannot cover it. Removing this keyword does not error — the rule stops
+  // applying and the blog filter shows every post while highlighting one
+  // category, which looks like a working page. That component carries the
+  // full note, including the cheap fix (static per-category rules, since
+  // BLOG_CATEGORIES is a fixed build-time enum).
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self' 'unsafe-inline'",
   // The browser Supabase client talks to REST/Auth/Storage over https. No

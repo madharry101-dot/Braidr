@@ -79,7 +79,33 @@ export function CategoryFilter({
       {active && <p className="mt-3 text-sm text-slate">{BLOG_CATEGORY_META[active].blurb}</p>}
 
       {/* `active` can only ever be one of BLOG_CATEGORIES (parseCategory
-          rejects anything else), so it is safe to interpolate here. */}
+          rejects anything else), so it is safe to interpolate here.
+
+          ⚠️ CSP CONSTRAINT — READ BEFORE TIGHTENING style-src.
+
+          This is an inline <style> element, on pages that previously had
+          none. It renders only after hydration, so it is absent from the
+          prerendered HTML and will NOT appear in any static scan of the
+          markup — the constraint is invisible unless you are looking here.
+
+          It means `style-src 'unsafe-inline'` in the Content-Security-Policy
+          (next.config.mjs, R-04) is LOAD-BEARING. Removing that keyword
+          silently stops this rule applying, and the category filter goes on
+          highlighting the selected chip while showing every post — a wrong
+          result that looks like a working page, not an error.
+
+          A nonce does not help: nonces apply to elements the server renders,
+          and this element is created in the browser. The clean fix is to not
+          need an inline style at all — BLOG_CATEGORIES is a fixed, known-at-
+          build-time enum, so one static rule per category in globals.css,
+          selected by a data attribute on the wrapper, does the same job with
+          no inline style and no CSP concession. That is deliberately NOT done
+          here; it is scoped as its own change.
+
+          Also note: the 48-hour CSP report-only window did not exercise these
+          pages — blog_posts was empty and the blog was unlaunched — so an
+          absence of style-src violations in that data says nothing about this
+          block. Treat the blog as unverified by that window, not as clean. */}
       {active && (
         <style>{`[data-blog-list] > li:not([data-category="${active}"]) { display: none; }`}</style>
       )}

@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sanitiseUploadedImage } from "@/lib/images/sanitise";
+import { isValidStorageOwnerId } from "@/lib/storage";
 import { publicStorageUrl } from "@/lib/storage";
 import { ok, fail } from "@/lib/api/response";
 
@@ -20,6 +21,8 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return fail("UNAUTHENTICATED", "Not signed in.", 401);
+  // Service-role write below bypasses storage RLS — see isValidStorageOwnerId.
+  if (!isValidStorageOwnerId(user.id)) return fail("UNAUTHENTICATED", "Not signed in.", 401);
 
   const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
   if (me?.role !== "admin" && me?.role !== "expert") {

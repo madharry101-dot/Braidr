@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ok, fail } from "@/lib/api/response";
 import { isHairTexture, type HairTexture } from "@/lib/hair/textures";
 import { sanitiseUploadedImage } from "@/lib/images/sanitise";
+import { isValidStorageOwnerId } from "@/lib/storage";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -13,12 +14,15 @@ const MAX_PORTFOLIO_PHOTOS = 12;
 // name "photos" (repeatable). Optional "texture" field applies one texture
 // tag to every photo in this batch (Part 1 — texture-verified
 // specialisations). Rows land in braider_portfolio_photos.
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return fail("UNAUTHENTICATED", "Not signed in.", 401);
+  // Service-role write below bypasses storage RLS — see isValidStorageOwnerId.
+  if (!isValidStorageOwnerId(user.id)) return fail("UNAUTHENTICATED", "Not signed in.", 401);
 
   const { data: braiderProfile } = await supabase
     .from("braider_profiles")

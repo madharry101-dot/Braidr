@@ -13,6 +13,7 @@
 //      matches at least the test users created here
 //   7. Cleans up every row, object, and user it created
 import { readFileSync } from "fs";
+import sharp from "sharp";
 import { createClient } from "@supabase/supabase-js";
 import WebSocket from "ws";
 
@@ -72,8 +73,26 @@ async function login(email, password) {
   return jar;
 }
 
+// This used to return 8 bytes — a bare JPEG signature (ff d8 ff e0) with no
+// image behind it. That was accepted because the upload route trusted the
+// client's declared MIME type and stored the buffer untouched.
+//
+// The upload routes now re-encode through sharp (lib/images/sanitise.ts) to
+// strip EXIF GPS, which decodes the bytes as a side effect and rejects
+// anything that isn't a real image. The old fixture is exactly what that is
+// meant to stop — and note it would have passed a naive magic-byte check too,
+// since its first four bytes are a valid JPEG signature. Only an actual
+// decode catches it.
+//
+// So the fixture is now a real (tiny) JPEG, matching smoke-test-braidcare.mjs.
+const REAL_JPEG = await sharp({
+  create: { width: 64, height: 64, channels: 3, background: { r: 180, g: 140, b: 110 } },
+})
+  .jpeg()
+  .toBuffer();
+
 function fakeJpeg() {
-  return new Blob([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0])], { type: "image/jpeg" });
+  return new Blob([REAL_JPEG], { type: "image/jpeg" });
 }
 
 try {

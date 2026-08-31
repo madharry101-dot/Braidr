@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ok, fail } from "@/lib/api/response";
 import { checkRateLimit } from "@/lib/api/rate-limit";
 import { sanitiseUploadedImage } from "@/lib/images/sanitise";
+import { isValidStorageOwnerId } from "@/lib/storage";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -12,12 +13,17 @@ const MAX_PHOTOS_PER_SESSION = 6; // PRD FR-CARE-02.3
 // POST /api/braidcare/sessions/:id/photos — TRD 4.5. multipart/form-data,
 // field name "photos" (repeatable), 1-6 files, owner only, session must
 // still be pending (not yet analysed).
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return fail("UNAUTHENTICATED", "Not signed in.", 401);
+  // The upload below goes through the service-role client, which bypasses the
+  // scalp-photos RLS policy that would otherwise reject a malformed owner
+  // segment. See isValidStorageOwnerId.
+  if (!isValidStorageOwnerId(user.id)) return fail("UNAUTHENTICATED", "Not signed in.", 401);
 
   const rateLimit = await checkRateLimit("fileUpload", user.id);
   if (!rateLimit.success) return fail("RATE_LIMITED", "Too many uploads. Try again later.", 429);

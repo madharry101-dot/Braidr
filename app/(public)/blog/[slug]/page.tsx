@@ -1,14 +1,37 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { hydratePeople } from "@/lib/blog/hydrate";
 import { renderMarkdown } from "@/lib/blog/markdown";
 import { BLOG_CATEGORY_META } from "@/lib/blog/types";
 import { formatDate } from "@/lib/format";
 
+// Statically generated per slug and revalidated every 5 minutes.
+//
+// `createPublicClient()` rather than `createClient()` from lib/supabase/server
+// is what makes that possible: the latter reads cookies, and reading cookies
+// forces this route to be rendered on every request. Nothing on this page
+// varies by session — the query pins `status = 'published'`, so an author
+// looking at their own published post sees what everyone else sees, and the
+// editor's draft preview goes through GET /api/blog/:slug, not this page.
+//
+// 300s is a backstop; publishing calls revalidatePath from the review route.
+export const revalidate = 300;
+
+// Prerender the posts that exist at build time. `dynamicParams` stays at its
+// default (true), so a post published after the build still renders on first
+// request and is then cached like the rest.
+export async function generateStaticParams() {
+  const { data } = await createPublicClient()
+    .from("blog_posts")
+    .select("slug")
+    .eq("status", "published");
+  return (data ?? []).map(({ slug }) => ({ slug }));
+}
+
 async function loadPost(slug: string) {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data: post } = await supabase
     .from("blog_posts")
     .select("id, title, slug, body, excerpt, category, published_at, author_id, reviewed_by")
@@ -17,6 +40,8 @@ async function loadPost(slug: string) {
     .maybeSingle();
   if (!post) return null;
 
+  // Byline only — see lib/blog/hydrate.ts for why a service-role read is
+  // acceptable in a page whose HTML is cached and served to everyone.
   const people = await hydratePeople([post.author_id]);
   return { post, author: people.get(post.author_id) ?? null };
 }

@@ -690,6 +690,40 @@ export interface Database {
         }>;
         Relationships: [];
       };
+      csp_violation_reports: {
+        // R-04 — Content-Security-Policy violation reports gathered while the
+        // policy runs in Report-Only mode. Written only by the service-role
+        // client from POST /api/csp-report; RLS is on with no policies, so no
+        // browser role can reach this table by any path.
+        Row: {
+          id: string;
+          created_at: string;
+          document_uri: string | null;
+          violated_directive: string | null;
+          effective_directive: string | null;
+          blocked_uri: string | null;
+          source_file: string | null;
+          line_number: number | null;
+          column_number: number | null;
+          disposition: string | null;
+          user_agent: string | null;
+          raw: unknown;
+        };
+        Insert: {
+          document_uri?: string | null;
+          violated_directive?: string | null;
+          effective_directive?: string | null;
+          blocked_uri?: string | null;
+          source_file?: string | null;
+          line_number?: number | null;
+          column_number?: number | null;
+          disposition?: string | null;
+          user_agent?: string | null;
+          raw?: unknown;
+        };
+        Update: NoClientWrite; // write-once operational log — never updated
+        Relationships: [];
+      };
       consent_events: {
         // Append-only GDPR consent log — TRD v2.0 Section 3.5.
         Row: {

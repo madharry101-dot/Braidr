@@ -12,6 +12,12 @@ const WINDOWS = {
   styleMatch: { limit: 10, window: "1 h" },
   generalApi: { limit: 200, window: "1 m" },
   admin: { limit: 100, window: "1 m" },
+  // POST /api/csp-report is unauthenticated by necessity — browsers send
+  // violation reports with no session. Generous, because a single page load
+  // that trips several directives legitimately produces several reports and
+  // we would rather not lose the signal we turned this on to collect; but
+  // bounded, because it is still a public write endpoint.
+  cspReport: { limit: 60, window: "1 m" },
 } as const;
 
 type RateLimitGroup = keyof typeof WINDOWS;

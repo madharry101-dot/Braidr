@@ -3,7 +3,8 @@
 // Supabase project:
 //   1. Braider uploads 2 portfolio photos, deletes one themselves
 //   2. Admin removes the remaining one with a reason -> storage object
-//      gone, array updated, moderation log entry recorded
+//      gone, braider_portfolio_photos row gone, moderation log entry
+//      recorded
 //   3. Admin removes a user's avatar the same way
 //   4. Confirms a non-admin is forbidden from both moderation actions
 //   5. Admin sends a targeted announcement (role: braider) -> confirms the
@@ -29,7 +30,7 @@ const env = Object.fromEntries(
     })
 );
 
-const BASE_URL = "http://localhost:3000";
+const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
@@ -95,6 +96,25 @@ function fakeJpeg() {
   return new Blob([REAL_JPEG], { type: "image/jpeg" });
 }
 
+// Portfolio photos are rows in braider_portfolio_photos, not a text[] on
+// braider_profiles, so there is no photo list on any response body to
+// assert against any more — every route returns only what it did
+// (`{ added }`, `{ deleted }`, `{ removed_path }`). Read the real state
+// out of the database instead, ordered the way the admin route indexes it.
+async function listPortfolioRows() {
+  const { data, error } = await admin
+    .from("braider_portfolio_photos")
+    .select("id, storage_path, sort_order")
+    .eq("braider_id", ids.braiderProfileId)
+    .order("sort_order", { ascending: true });
+  if (error) throw new Error(`could not read braider_portfolio_photos: ${error.message}`);
+  return data ?? [];
+}
+async function listPortfolioObjects() {
+  const { data } = await admin.storage.from("portfolio-photos").list(ids.braiderUserId);
+  return (data ?? []).map((o) => `${ids.braiderUserId}/${o.name}`);
+}
+
 try {
   const suffix = Date.now();
   const { data: adminUser } = await admin.auth.admin.createUser({
@@ -142,22 +162,39 @@ try {
   );
   const uploadBody = await uploadRes.json();
   assert(uploadRes.status === 201, `upload failed: ${JSON.stringify(uploadBody)}`);
-  assert(uploadBody.data.portfolio_photos.length === 2, "should have 2 photos");
+  assert(uploadBody.data.added === 2, `should have added 2 photos: ${JSON.stringify(uploadBody)}`);
 
+  const afterUpload = await listPortfolioRows();
+  assert(afterUpload.length === 2, `should have 2 photo rows, got ${afterUpload.length}`);
+  assert(
+    (await listPortfolioObjects()).length === 2,
+    "both uploads should exist as real storage objects"
+  );
+
+  // The owner route deletes by row id now, not by array index.
+  const selfDeleted = afterUpload[1];
   const ownDeleteRes = await authedFetch(
     braiderJar,
-    `${BASE_URL}/api/braiders/${ids.braiderProfileId}/portfolio-photos/1`,
+    `${BASE_URL}/api/braiders/${ids.braiderProfileId}/portfolio-photos/${selfDeleted.id}`,
     {
       method: "DELETE",
     }
   );
   const ownDeleteBody = await ownDeleteRes.json();
   assert(ownDeleteRes.status === 200, `own-delete failed: ${JSON.stringify(ownDeleteBody)}`);
+  assert(ownDeleteBody.data.deleted === true, "own-delete should report deleted: true");
+
+  const afterSelfDelete = await listPortfolioRows();
   assert(
-    ownDeleteBody.data.portfolio_photos.length === 1,
-    "should have 1 photo left after self-delete"
+    afterSelfDelete.length === 1 && afterSelfDelete[0].id !== selfDeleted.id,
+    "exactly the photo the owner deleted should be gone"
   );
-  console.log("   OK — owner upload + self-delete both work");
+  const objectsAfterSelfDelete = await listPortfolioObjects();
+  assert(
+    !objectsAfterSelfDelete.includes(selfDeleted.storage_path),
+    "the self-deleted storage object should actually be gone, not just untracked"
+  );
+  console.log("   OK — owner upload + self-delete both work (row and object removed)");
 
   console.log("3. Admin removes the remaining portfolio photo with a reason...");
   const modDeleteRes = await authedFetch(
@@ -174,16 +211,19 @@ try {
     modDeleteRes.status === 200,
     `admin portfolio removal failed: ${JSON.stringify(modDeleteBody)}`
   );
-  assert(modDeleteBody.data.portfolio_photos.length === 0, "should have 0 photos left");
-
-  const { data: storageCheck } = await admin.storage
-    .from("portfolio-photos")
-    .list(ids.braiderUserId);
+  // Index 0 is a position into the braider's photos ordered by sort_order —
+  // after the self-delete above there is one left, and it is that one.
   assert(
-    (storageCheck ?? []).length === 0,
+    modDeleteBody.data.removed_path === afterSelfDelete[0].storage_path,
+    `admin should have removed the surviving photo, got ${modDeleteBody.data.removed_path}`
+  );
+
+  assert((await listPortfolioRows()).length === 0, "should have 0 photo rows left");
+  assert(
+    (await listPortfolioObjects()).length === 0,
     "the storage object should actually be gone, not just untracked"
   );
-  console.log("   OK — array emptied AND storage object actually deleted");
+  console.log("   OK — row removed AND storage object actually deleted");
 
   console.log("4. Admin removes the test braider's avatar...");
   const avatarRes = await authedFetch(
@@ -262,7 +302,43 @@ try {
   );
   console.log("   OK");
 
-  console.log("9. Confirming a non-admin CANNOT send announcements...");
+  console.log("9. Empty segment ({}) is treated as platform-wide...");
+  // The header has always claimed this check; it was never actually
+  // written. An empty segment matches EVERY user, so with a live Resend
+  // key this step would email the whole platform — refuse to run it rather
+  // than spam real inboxes. RESEND_API_KEY is empty in dev, where
+  // sendEmail() logs instead of sending.
+  if (env.RESEND_API_KEY) {
+    console.log("   SKIPPED — RESEND_API_KEY is set; refusing to email every user.");
+  } else {
+    const platformRes = await authedFetch(adminJar, `${BASE_URL}/api/admin/notifications`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        segment: {},
+        subject: "Smoke test platform-wide announcement",
+        message: "This is a platform-wide announcement smoke test.",
+      }),
+    });
+    const platformBody = await platformRes.json();
+    assert(
+      platformRes.status === 201,
+      `platform-wide announcement failed: ${JSON.stringify(platformBody)}`
+    );
+    // Both test users created here are in it, and an unfiltered segment can
+    // never match fewer people than the role-filtered one above.
+    assert(
+      platformBody.data.recipient_count >= 2,
+      "platform-wide should reach at least both test users"
+    );
+    assert(
+      platformBody.data.recipient_count >= announceBody.data.recipient_count,
+      `platform-wide (${platformBody.data.recipient_count}) should not be narrower than role-targeted (${announceBody.data.recipient_count})`
+    );
+    console.log("   OK — recipient_count:", platformBody.data.recipient_count);
+  }
+
+  console.log("10. Confirming a non-admin CANNOT send announcements...");
   const forbiddenAnnounceRes = await authedFetch(
     braiderJar,
     `${BASE_URL}/api/admin/notifications`,
@@ -280,6 +356,20 @@ try {
   );
 } finally {
   console.log("\nCleaning up (FK-safe order)...");
+  // Deleting the profile cascades braider_portfolio_photos but NOT the
+  // objects those rows pointed at, and portfolio-photos is a PUBLIC bucket
+  // — so a run that fails between upload and removal would otherwise leave
+  // real images sitting at stable unauthenticated URLs.
+  if (ids.braiderUserId) {
+    const { data: leftovers } = await admin.storage
+      .from("portfolio-photos")
+      .list(ids.braiderUserId);
+    if (leftovers?.length) {
+      await admin.storage
+        .from("portfolio-photos")
+        .remove(leftovers.map((o) => `${ids.braiderUserId}/${o.name}`));
+    }
+  }
   if (ids.braiderProfileId)
     await admin.from("braider_profiles").delete().eq("id", ids.braiderProfileId);
   await admin

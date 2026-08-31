@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validate } from "@/lib/api/validate";
@@ -32,7 +33,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
   const admin = createAdminClient();
   const { data: post } = await admin
     .from("blog_posts")
-    .select("id, author_id, status, title")
+    .select("id, author_id, status, title, slug")
     .eq("id", params.id)
     .maybeSingle();
   if (!post) return fail("NOT_FOUND", "Post not found.", 404);
@@ -81,6 +82,13 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
     console.error("[blog] publish failed", error);
     return fail("INTERNAL_ERROR", "Couldn't publish the post.", 500);
   }
+
+  // The two public blog pages are statically cached (ISR, 300s). Without
+  // this the article would be live in the database but invisible on the site
+  // for up to five minutes, which is not an acceptable publish experience for
+  // the person who just clicked approve.
+  revalidatePath("/blog");
+  revalidatePath(`/blog/${post.slug}`);
 
   // Queue the newsletter rather than sending it here — publishing stays
   // instant and can't fail because an email provider is struggling. The

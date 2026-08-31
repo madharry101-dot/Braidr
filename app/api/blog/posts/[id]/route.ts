@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { validate } from "@/lib/api/validate";
@@ -56,11 +57,23 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
   const admin = await isAdmin(supabase, user.id);
   const client = admin ? createAdminClient() : supabase;
 
+  // Read the current slug and status first. An admin editing a *published*
+  // post has to invalidate the cached HTML for it, and if this edit renames
+  // the slug the old URL has to be invalidated too — which is only knowable
+  // from before the update. (An author's edits never reach here published:
+  // RLS restricts them to unpublished posts, and no schema field can change
+  // status.)
+  const { data: before } = await client
+    .from("blog_posts")
+    .select("slug, status")
+    .eq("id", params.id)
+    .maybeSingle();
+
   const { data: updated, error } = await client
     .from("blog_posts")
     .update(parsed.data)
     .eq("id", params.id)
-    .select("id")
+    .select("id, slug")
     .maybeSingle();
 
   if (error) {
@@ -70,6 +83,13 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
   if (!updated) {
     return fail("FORBIDDEN", "You can't edit this post.", 403);
   }
+
+  if (before?.status === "published") {
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${before.slug}`);
+    if (updated.slug !== before.slug) revalidatePath(`/blog/${updated.slug}`);
+  }
+
   return ok({ updated: true });
 }
 
@@ -90,10 +110,18 @@ export async function DELETE(_request: Request, props: { params: Promise<{ id: s
     .from("blog_posts")
     .delete()
     .eq("id", params.id)
-    .select("id")
+    .select("id, slug, status")
     .maybeSingle();
 
   if (error) return fail("INTERNAL_ERROR", "Couldn't delete the post.", 500);
   if (!deleted) return fail("FORBIDDEN", "You can't delete this post.", 403);
+
+  // Deleting a published post leaves its cached page serving an article that
+  // no longer exists until the next revalidation. Drop it now.
+  if (deleted.status === "published") {
+    revalidatePath("/blog");
+    revalidatePath(`/blog/${deleted.slug}`);
+  }
+
   return ok({ deleted: true });
 }

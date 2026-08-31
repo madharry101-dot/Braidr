@@ -708,8 +708,12 @@ export interface Database {
           disposition: string | null;
           user_agent: string | null;
           raw: unknown;
+          source: "out_of_band" | "observer";
+          dedupe_bucket: string | null;
         };
         Insert: {
+          source?: "out_of_band" | "observer";
+          dedupe_bucket?: string | null;
           document_uri?: string | null;
           violated_directive?: string | null;
           effective_directive?: string | null;

@@ -48,11 +48,36 @@ type Row = {
   disposition: string | null;
   user_agent: string | null;
   raw: unknown;
+  source: "observer" | "out_of_band";
+  dedupe_bucket: string;
 };
 
+/**
+ * Which delivery path this request came by, decided from the Content-Type
+ * rather than from anything in the payload — a caller cannot mislabel its own
+ * rows by setting a field. Browsers use `application/csp-report` (legacy
+ * report-uri) or `application/reports+json` (Reporting API); the page's own
+ * ReportingObserver posts ordinary `application/json`.
+ *
+ * This exists to answer one question later: did out-of-band delivery ever
+ * actually start working? As of 2026-09-01 real Chrome sent nothing.
+ */
+function inferSource(contentType: string | null): "observer" | "out_of_band" {
+  const ct = (contentType ?? "").toLowerCase();
+  if (ct.includes("csp-report") || ct.includes("reports+json")) return "out_of_band";
+  return "observer";
+}
+
 /** Normalises either wire format's report body into one row shape. */
-function toRow(body: Record<string, unknown>, userAgent: string | null): Row {
+function toRow(
+  body: Record<string, unknown>,
+  userAgent: string | null,
+  source: "observer" | "out_of_band",
+  dedupeBucket: string
+): Row {
   return {
+    source,
+    dedupe_bucket: dedupeBucket,
     document_uri: truncate(body["document-uri"] ?? body.documentURL, 1000),
     violated_directive: truncate(body["violated-directive"], 200),
     effective_directive: truncate(
@@ -97,29 +122,54 @@ export async function POST(request: NextRequest) {
   }
 
   const userAgent = request.headers.get("user-agent");
+  const source = inferSource(request.headers.get("content-type"));
+  // Arrival time floored to the minute. With the csp_reports_dedupe unique
+  // index this makes a repeat of the same violation inside the same minute a
+  // no-op — which matters because the out-of-band config is deliberately
+  // still enabled, so one violation could arrive by both paths.
+  const dedupeBucket = new Date(Math.floor(Date.now() / 60000) * 60000).toISOString();
   const rows: Row[] = [];
 
   if (Array.isArray(parsed)) {
     // Reporting API: [{ type: "csp-violation", body: {...} }, ...]
+    // Also the shape the page's own observer posts, which sends the report
+    // bodies directly — hence the `e.body ?? e` fallback below.
     for (const entry of parsed.slice(0, MAX_REPORTS_PER_REQUEST)) {
       if (entry && typeof entry === "object") {
         const e = entry as Record<string, unknown>;
         if (e.type && e.type !== "csp-violation") continue;
         const body = (e.body ?? e) as Record<string, unknown>;
-        if (body && typeof body === "object") rows.push(toRow(body, userAgent));
+        if (body && typeof body === "object") {
+          rows.push(toRow(body, userAgent, source, dedupeBucket));
+        }
       }
     }
   } else if (parsed && typeof parsed === "object") {
     // Legacy report-uri: { "csp-report": {...} }
     const p = parsed as Record<string, unknown>;
     const body = (p["csp-report"] ?? p) as Record<string, unknown>;
-    if (body && typeof body === "object") rows.push(toRow(body, userAgent));
+    if (body && typeof body === "object") {
+      rows.push(toRow(body, userAgent, source, dedupeBucket));
+    }
   }
 
   if (rows.length === 0) return noContent;
 
+  // A batch can legitimately contain the same violation twice (an observer
+  // flush plus a buffered replay). Collapse within the request as well, so a
+  // single insert can't conflict with itself.
+  const deduped = [
+    ...new Map(
+      rows.map((r) => [`${r.effective_directive}|${r.blocked_uri}|${r.document_uri}`, r])
+    ).values(),
+  ];
+
   try {
-    await createAdminClient().from("csp_violation_reports").insert(rows);
+    // ignoreDuplicates -> ON CONFLICT DO NOTHING against csp_reports_dedupe.
+    await createAdminClient().from("csp_violation_reports").upsert(deduped, {
+      onConflict: "effective_directive,blocked_uri,document_uri,dedupe_bucket",
+      ignoreDuplicates: true,
+    });
   } catch {
     // Losing a violation report must never surface as a client-visible error.
   }

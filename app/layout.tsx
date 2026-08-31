@@ -4,6 +4,7 @@ import { Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { CookieBanner } from "@/components/legal/cookie-banner";
+import { CspReporter } from "@/components/security/csp-reporter";
 
 // Brand typefaces. Loaded through next/font/google rather than a <link> to
 // fonts.googleapis.com so they are self-hosted at build time — no
@@ -64,6 +65,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="min-h-screen">
         <Providers>{children}</Providers>
         <CookieBanner />
+        {/* Reports this page's CSP violations to /api/csp-report, because
+            Chrome queues them but does not deliver them out-of-band (see the
+            component). Renders nothing; must be inside <body> so it mounts on
+            every page, including the statically prerendered ones. */}
+        <CspReporter />
       </body>
     </html>
   );

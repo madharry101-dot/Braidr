@@ -7,7 +7,8 @@ import { sendEmail } from "@/lib/email/send";
 // the participant who did NOT request the reschedule. Updating appointment_at
 // here is what actually moves braidcare_live_at — it's a generated column,
 // so Postgres recalculates it automatically on this UPDATE.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

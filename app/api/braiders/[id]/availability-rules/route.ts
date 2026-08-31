@@ -9,7 +9,8 @@ import { ok, fail } from "@/lib/api/response";
 // all); replaces the braider's full weekly schedule in one call, since a
 // partial-update API for a weekly grid adds complexity with little benefit
 // over "the UI always submits the whole week."
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

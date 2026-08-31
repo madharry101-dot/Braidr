@@ -9,7 +9,8 @@ import { ok, fail } from "@/lib/api/response";
 // PUT /api/admin/braiders/:id/verify — TRD 4.8 / PRD FR-ADMIN-01.2.
 // Does not touch is_active — see the migration note on why a rejected
 // braider stays live but unverified rather than being unpublished.
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

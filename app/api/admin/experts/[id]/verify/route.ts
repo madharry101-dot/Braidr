@@ -11,7 +11,8 @@ import { ok, fail } from "@/lib/api/response";
 // profile — it just leaves is_verified false (so it stays unlisted) with
 // a note the expert can see via GET /api/experts/:id, and is_active set
 // false so a rejected applicant doesn't linger as if still under review.
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

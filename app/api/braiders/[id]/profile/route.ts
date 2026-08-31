@@ -8,7 +8,8 @@ import { ok, fail } from "@/lib/api/response";
 // (braider_profiles_update_own + the privileged-field guard trigger) already
 // enforces ownership and blocks system-managed fields, so this can just use
 // the regular session client.
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

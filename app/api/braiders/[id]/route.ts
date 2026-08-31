@@ -4,7 +4,8 @@ import { ok, fail } from "@/lib/api/response";
 // GET /api/braiders/:id — TRD 4.3: "Get single braider profile with
 // services and reviews". Three separate queries rather than embedded
 // selects — see the search route's comment on why (empty Relationships).
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

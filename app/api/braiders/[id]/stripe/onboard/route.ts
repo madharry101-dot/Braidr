@@ -9,7 +9,8 @@ import { ok, fail } from "@/lib/api/response";
 // the Express account on first call, an onboarding Account Link every call
 // (links expire quickly, so re-requesting is the normal flow if a braider
 // abandons onboarding partway).
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

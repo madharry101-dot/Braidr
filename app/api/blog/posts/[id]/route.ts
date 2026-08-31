@@ -10,7 +10,8 @@ import { ok, fail } from "@/lib/api/response";
 
 // GET /api/blog/posts/:id — the editing view of one post (by id, not slug),
 // including its workflow state. RLS scopes this to the author and staff.
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -40,7 +41,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 // PUT /api/blog/posts/:id — edit. An author may edit their own post while
 // it is unpublished (RLS enforces both halves). An admin may edit anything,
 // including a published post, via the service-role client.
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -73,7 +75,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 // DELETE /api/blog/posts/:id — authors can delete their own drafts (RLS);
 // admins can delete anything.
-export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

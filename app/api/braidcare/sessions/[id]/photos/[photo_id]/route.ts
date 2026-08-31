@@ -8,8 +8,9 @@ import { ok, fail } from "@/lib/api/response";
 // enough for "delete one photo" without adding a child table for it.
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string; photo_id: string } }
+  props: { params: Promise<{ id: string; photo_id: string }> }
 ) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

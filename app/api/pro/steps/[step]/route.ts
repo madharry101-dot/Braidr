@@ -14,7 +14,8 @@ const ALLOWED_DOC_TYPES = new Set(["application/pdf", "image/jpeg", "image/png"]
 // checking the prior step's completion flag before allowing this one.
 // Step 1 (the assessment) has its own endpoint (POST /api/pro/assessment);
 // this route only ever receives 2-5.
-export async function PUT(request: NextRequest, { params }: { params: { step: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ step: string }> }) {
+  const params = await props.params;
   const step = Number(params.step);
   if (![2, 3, 4, 5].includes(step)) {
     return fail("VALIDATION_ERROR", "step must be 2, 3, 4, or 5.", 422);

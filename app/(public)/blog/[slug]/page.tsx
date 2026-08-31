@@ -7,8 +7,6 @@ import { renderMarkdown } from "@/lib/blog/markdown";
 import { BLOG_CATEGORY_META } from "@/lib/blog/types";
 import { formatDate } from "@/lib/format";
 
-export const revalidate = 300;
-
 async function loadPost(slug: string) {
   const supabase = await createClient();
   const { data: post } = await supabase
@@ -23,11 +21,10 @@ async function loadPost(slug: string) {
   return { post, author: people.get(post.author_id) ?? null };
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { slug: string };
+export async function generateMetadata(props: {
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
+  const params = await props.params;
   const loaded = await loadPost(params.slug);
   if (!loaded) return { title: "Article not found" };
   return {
@@ -42,7 +39,8 @@ export async function generateMetadata({
   };
 }
 
-export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+export default async function BlogPostPage(props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const loaded = await loadPost(params.slug);
   if (!loaded) notFound();
   const { post, author } = loaded;

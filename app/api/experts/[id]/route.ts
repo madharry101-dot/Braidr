@@ -7,7 +7,8 @@ import { ok, fail } from "@/lib/api/response";
 // GET /api/experts/:id — TRD 4.7. Owner can see their own pending profile;
 // anyone else only if verified + active (same shape as the list route,
 // enforced by the same RLS policy).
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -45,7 +46,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 // /api/braiders/:id/profile). RLS + the owner-update policy enforce
 // ownership; the privileged fields (is_verified etc.) are separately
 // guarded regardless of what this route sends.
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

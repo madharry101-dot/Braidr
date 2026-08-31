@@ -4,7 +4,8 @@ import { ok, fail } from "@/lib/api/response";
 // GET /api/braidcare/sessions/:id — TRD 4.5. Owner (client or the booking's
 // braider) only, enforced by RLS — never selects photo_paths/ai_raw_response
 // (column grant on braidcare_sessions blocks it for both roles anyway).
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

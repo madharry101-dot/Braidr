@@ -4,7 +4,8 @@ import { ok, fail } from "@/lib/api/response";
 // GET /api/braidcare/sessions/:id/status — TRD 4.5 / 7.3. Lightweight poll
 // target for React Query (refetchInterval: 3s while status === "in_progress",
 // per TRD's caching strategy table).
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

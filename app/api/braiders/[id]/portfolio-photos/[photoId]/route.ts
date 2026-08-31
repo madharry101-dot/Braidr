@@ -9,8 +9,9 @@ import { isHairTexture, type HairTexture } from "@/lib/hair/textures";
 // becomes "verified" once it has >= 1 tagged photo (DB trigger).
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; photoId: string } }
+  props: { params: Promise<{ id: string; photoId: string }> }
 ) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -55,8 +56,9 @@ export async function PATCH(
 // of their own portfolio photos (by row id).
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string; photoId: string } }
+  props: { params: Promise<{ id: string; photoId: string }> }
 ) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

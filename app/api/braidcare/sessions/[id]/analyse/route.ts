@@ -15,7 +15,8 @@ import { ok, fail } from "@/lib/api/response";
 // user impact) rather than blocking the request retrying — the actual
 // retry loop lives in /api/cron/retry-braidcare-analysis, polling on the
 // same schedule TRD 5.4 describes (every 15 minutes, up to 4 hours old).
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

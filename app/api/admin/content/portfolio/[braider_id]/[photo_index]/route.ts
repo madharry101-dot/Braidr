@@ -10,8 +10,9 @@ import { ok, fail } from "@/lib/api/response";
 // TRD/PRD FR-ADMIN-01.6.
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { braider_id: string; photo_index: string } }
+  props: { params: Promise<{ braider_id: string; photo_index: string }> }
 ) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

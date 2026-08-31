@@ -6,7 +6,8 @@ import { ok, fail } from "@/lib/api/response";
 
 // POST /api/braiders/:id/blocked-dates — not in the TRD's endpoint table
 // (same gap as availability-rules); blocks a single date (holiday, day off).
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,7 +36,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
 // DELETE /api/braiders/:id/blocked-dates — unblocks a date, passed as
 // ?date=YYYY-MM-DD.
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

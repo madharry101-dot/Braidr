@@ -10,7 +10,8 @@ import { sendEmail } from "@/lib/email/send";
 // a new time; appointment_at (and therefore braidcare_live_at) doesn't
 // change until the other participant calls confirm-reschedule. See the
 // booking_reschedule migration note for why pending_reschedule_at exists.
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

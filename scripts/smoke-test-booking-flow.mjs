@@ -196,7 +196,7 @@ try {
   console.log("6. Verifying side effects...");
   const { data: confirmedBooking } = await admin
     .from("bookings")
-    .select("status, stripe_payment_intent_id")
+    .select("status, stripe_payment_intent_id, sessions_allocated")
     .eq("id", ids.bookingId)
     .single();
   assert(
@@ -209,17 +209,26 @@ try {
   );
   console.log("   OK — booking status -> confirmed, payment_intent_id captured from webhook");
 
+  // This assertion used to expect 3 pre-created braidcare_sessions rows.
+  // v2-B3 (commit 6ff7212) deliberately stopped the webhook creating them —
+  // see the NOTE in app/api/stripe/webhook/route.ts: bookings.sessions_allocated
+  // defaulting to 3 IS the allocation, and rows are created one at a time when
+  // the client actually starts a check. The old assertion had been failing
+  // since 2026-08-28 and aborted the script before the income-record checks
+  // below ever ran.
   const { data: sessions } = await admin
     .from("braidcare_sessions")
     .select("session_number, session_type, status")
-    .eq("booking_id", ids.bookingId)
-    .order("session_number");
-  assert(sessions.length === 3, `expected 3 braidcare sessions, got ${sessions.length}`);
+    .eq("booking_id", ids.bookingId);
   assert(
-    sessions.every((s) => s.session_type === "included"),
-    "all 3 should be type 'included'"
+    sessions.length === 0,
+    `no braidcare_sessions should be pre-created on confirmation, got ${sessions.length}`
   );
-  console.log("   OK — 3 BraidCare sessions allocated");
+  assert(
+    confirmedBooking.sessions_allocated === 3,
+    `sessions_allocated should be 3, got ${confirmedBooking.sessions_allocated}`
+  );
+  console.log("   OK — 3 BraidCare sessions allocated (as a quota, no rows pre-created)");
 
   const { data: incomeRecords } = await admin
     .from("income_records")

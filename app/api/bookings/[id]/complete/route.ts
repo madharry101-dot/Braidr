@@ -8,7 +8,8 @@ import { sendEmail } from "@/lib/email/send";
 // transfers model, the actual payout is released by the
 // /api/cron/release-payouts job once the 24-hour hold (from this
 // completed_at) has passed. This route only flips the booking's status.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

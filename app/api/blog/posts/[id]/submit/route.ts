@@ -9,7 +9,8 @@ import { ok, fail } from "@/lib/api/response";
 // draft -> published, and the no-self-review constraint blocks an author
 // naming themselves as reviewer), so an advisor cannot self-publish even
 // if this route were compromised.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

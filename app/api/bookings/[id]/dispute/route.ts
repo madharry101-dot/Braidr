@@ -12,7 +12,8 @@ import { ok, fail } from "@/lib/api/response";
 // raise one, on a 'confirmed' or 'completed' booking (pre_dispute_status
 // records which, so PUT /api/admin/bookings/:id/resolve can restore it
 // correctly on dismissal).
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

@@ -6,7 +6,8 @@ import { ok, fail } from "@/lib/api/response";
 // GET /api/blog/:slug — one post. Unauthenticated for published posts; RLS
 // additionally lets an author (and staff) fetch their own unpublished work,
 // which is what makes the editor's preview work without a second endpoint.
-export async function GET(_request: Request, { params }: { params: { slug: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
 
   const { data: post } = await supabase

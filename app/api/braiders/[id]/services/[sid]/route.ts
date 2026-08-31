@@ -7,8 +7,9 @@ import { ok, fail } from "@/lib/api/response";
 // PUT /api/braiders/:id/services/:sid — TRD 4.3, owner only.
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; sid: string } }
+  props: { params: Promise<{ id: string; sid: string }> }
 ) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,8 +36,9 @@ export async function PUT(
 // note on why there's no hard-delete RLS policy at all.
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { id: string; sid: string } }
+  props: { params: Promise<{ id: string; sid: string }> }
 ) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

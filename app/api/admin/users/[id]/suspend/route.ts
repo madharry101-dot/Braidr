@@ -9,7 +9,8 @@ import { ok, fail } from "@/lib/api/response";
 // PUT /api/admin/users/:id/suspend — TRD 4.8 / PRD FR-ADMIN-01.1.
 // Reversible (pass suspended: false to lift it) — see middleware.ts and
 // /api/auth/login for where this is actually enforced.
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

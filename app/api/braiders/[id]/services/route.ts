@@ -5,7 +5,8 @@ import { createServiceSchema } from "@/lib/validations/braider";
 import { ok, fail } from "@/lib/api/response";
 
 // POST /api/braiders/:id/services — TRD 4.3, owner only.
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

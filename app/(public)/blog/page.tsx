@@ -15,9 +15,9 @@ export const metadata: Metadata = {
 // Server component: the blog is public and should be crawlable, so it
 // renders on the server against RLS (published posts are readable by the
 // anon role) rather than fetching from the client.
-export const revalidate = 300;
 
-export default async function BlogIndex({ searchParams }: { searchParams: { category?: string } }) {
+export default async function BlogIndex(props: { searchParams: Promise<{ category?: string }> }) {
+  const searchParams = await props.searchParams;
   const supabase = await createClient();
 
   const active = (BLOG_CATEGORIES as readonly string[]).includes(searchParams.category ?? "")

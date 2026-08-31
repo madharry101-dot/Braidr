@@ -9,7 +9,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 //   - unknown code   -> /register, no cookie
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30;
 
-export async function GET(request: NextRequest, { params }: { params: { code: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ code: string }> }) {
+  const params = await props.params;
   const code = params.code.trim().toUpperCase();
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(request.url).origin;
 

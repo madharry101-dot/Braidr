@@ -13,7 +13,8 @@ import { ok, fail } from "@/lib/api/response";
 // it is enforced three deep: here, by the blog_posts_no_self_review table
 // constraint, and by the status trigger that only allows in_review ->
 // published.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

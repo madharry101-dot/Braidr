@@ -13,7 +13,8 @@ import { ok, fail } from "@/lib/api/response";
 // prevent_profile_privileged_field_update() only lets the platform stamp
 // hair_type_source = 'braider_confirmed' — a braider must not be able to
 // set that through a raw REST call with their own session.
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

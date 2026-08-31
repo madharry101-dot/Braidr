@@ -4,7 +4,8 @@ import { ok, fail } from "@/lib/api/response";
 // GET /api/bookings/:id — TRD 4.4. RLS (bookings_select_participant) already
 // restricts this to the client or braider on the booking; a non-participant
 // gets 0 rows back, which we surface as 404.
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

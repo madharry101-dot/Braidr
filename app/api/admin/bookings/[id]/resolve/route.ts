@@ -13,7 +13,8 @@ import type { BookingStatus } from "@/types/database";
 // booking was in before the dispute (pre_dispute_status — could be
 // 'confirmed' or 'completed', not assumed); 'refund' refunds the client
 // and sets status to 'refunded'.
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

@@ -21,7 +21,8 @@ import { ok, fail } from "@/lib/api/response";
 // "this person and their personal data are gone", not "every row that
 // mentions them is gone" — those aren't the same thing once financial
 // retention law is in the picture.
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function DELETE(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

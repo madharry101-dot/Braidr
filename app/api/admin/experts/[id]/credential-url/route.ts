@@ -8,7 +8,8 @@ import { ok, fail } from "@/lib/api/response";
 // before approving. Admin-only; the expert-credentials bucket is private
 // and the column is revoked from `authenticated`, so this is the only read
 // path (TRD 3.1.6: "admin access only").
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

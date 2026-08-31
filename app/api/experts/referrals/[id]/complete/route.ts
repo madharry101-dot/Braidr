@@ -11,7 +11,8 @@ import { ok, fail } from "@/lib/api/response";
 // completed referrals and triggers fee payment") needs one. Admin-only —
 // see the expert_referrals migration note on why this isn't self-reported
 // by either party.
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

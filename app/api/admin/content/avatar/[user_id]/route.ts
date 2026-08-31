@@ -11,7 +11,11 @@ import { ok, fail } from "@/lib/api/response";
 // upload endpoint was built this sprint either — moderation here acts on
 // whatever's set, however it got there), so this only clears the column
 // and best-effort removes the object if the path looks like one of ours.
-export async function DELETE(request: NextRequest, { params }: { params: { user_id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  props: { params: Promise<{ user_id: string }> }
+) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

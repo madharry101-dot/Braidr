@@ -16,7 +16,8 @@ import { stripe } from "@/lib/stripe/client";
 //   balance (separate charges and transfers), so this is a plain
 //   stripe.refunds.create against the PaymentIntent; no transfer has
 //   happened yet, so nothing to claw back from the braider.
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

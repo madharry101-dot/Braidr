@@ -6,7 +6,8 @@ import { computeAvailability } from "@/lib/bookings/compute-availability";
 import { ok, fail } from "@/lib/api/response";
 
 // GET /api/braiders/:id/availability — TRD 4.3. ?date_from=&date_to=&service_id=
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const supabase = await createClient();
   const {
     data: { user },

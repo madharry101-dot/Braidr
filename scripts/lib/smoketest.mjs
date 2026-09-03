@@ -54,9 +54,12 @@ export function isSmoketestEmail(email) {
 // matters: reversed, these produce FK violations — which, before this module,
 // were exactly the silent errors nobody read.
 const USER_SCOPED_TABLES = [
+  // expert_referrals FIRST: it references braidcare_sessions (and
+  // expert_profiles), so deleting sessions before referrals violates
+  // expert_referrals_braidcare_session_id_fkey.
+  { table: "expert_referrals", column: "client_id" },
   { table: "braidcare_sessions", column: "client_id" },
   { table: "braidcare_subscriptions", column: "user_id" },
-  { table: "expert_referrals", column: "client_id" },
   { table: "newsletter_sends", column: "recipient_user_id" },
   { table: "newsletter_subscriptions", column: "user_id" },
   { table: "consent_events", column: "user_id" },
@@ -65,16 +68,20 @@ const USER_SCOPED_TABLES = [
   { table: "expert_profiles", column: "user_id" },
 ];
 
-// Tables reached through a braider_profiles.id rather than a user id.
-const BRAIDER_SCOPED_TABLES = [
+// Tables reached through a braider_profiles.id rather than a user id, split
+// around bookings because bookings sits in the middle of the FK chain:
+// income_records REFERENCES bookings, while bookings REFERENCES services. Get
+// that order wrong and the delete fails with a foreign key violation — which,
+// before this module, was silently swallowed.
+const BRAIDER_SCOPED_BEFORE_BOOKINGS = [
   { table: "braider_texture_specialisations", column: "braider_id" },
   { table: "braider_portfolio_photos", column: "braider_id" },
   { table: "reviews", column: "braider_id" },
   { table: "braider_availability_rules", column: "braider_id" },
   { table: "braider_blocked_dates", column: "braider_id" },
   { table: "income_records", column: "braider_id" },
-  { table: "services", column: "braider_id" },
 ];
+const BRAIDER_SCOPED_AFTER_BOOKINGS = [{ table: "services", column: "braider_id" }];
 
 const BUCKETS = [
   "scalp-photos",
@@ -133,7 +140,7 @@ export async function discoverArtefacts(admin) {
     for (const r of bkClient ?? []) bookingIds.add(r.id);
 
     if (braiderIds.length > 0) {
-      for (const { table, column } of BRAIDER_SCOPED_TABLES) {
+      for (const { table, column } of BRAIDER_SCOPED_BEFORE_BOOKINGS) {
         const { data } = await admin.from(table).select("id").in(column, braiderIds);
         if (data?.length) found.rows.push({ table, column, ids: data.map((r) => r.id) });
       }
@@ -144,13 +151,40 @@ export async function discoverArtefacts(admin) {
       for (const r of bkBraider ?? []) bookingIds.add(r.id);
     }
 
+    // Bookings go in BEFORE services: bookings.service_id references services,
+    // so deleting services first violates bookings_service_id_fkey.
     if (bookingIds.size > 0) {
       found.rows.push({ table: "bookings", column: "id", ids: [...bookingIds] });
     }
+
+    if (braiderIds.length > 0) {
+      for (const { table, column } of BRAIDER_SCOPED_AFTER_BOOKINGS) {
+        const { data } = await admin.from(table).select("id").in(column, braiderIds);
+        if (data?.length) found.rows.push({ table, column, ids: data.map((r) => r.id) });
+      }
+    }
   }
 
-  // Storage by path prefix, independent of the user list — so an object whose
-  // owning user was already deleted is still found.
+  // Storage, two ways, because one is not enough.
+  //
+  // (a) By the smoke-test user's id FOLDER. Objects uploaded through a real
+  //     route are named BY that route — portfolio photos land at
+  //     `{userId}/{timestamp}-{i}.jpg` — so the script cannot give them a
+  //     smoketest- prefix, and a prefix-only search misses every one. These
+  //     are the dangerous ones: portfolio-photos and avatars are PUBLIC
+  //     buckets, so a missed object sits at a stable unauthenticated URL.
+  for (const bucket of BUCKETS) {
+    for (const uid of userIds) {
+      const { data, error } = await admin.storage.from(bucket).list(uid, { limit: 1000 });
+      if (error) continue;
+      for (const f of data ?? []) {
+        if (f.name) found.storage.push({ bucket, path: uid + "/" + f.name });
+      }
+    }
+  }
+
+  // (b) By path prefix, independent of the user list — so an object whose
+  //     owning user was already deleted is still found.
   for (const bucket of BUCKETS) {
     const { data, error } = await admin.storage.from(bucket).list("", { limit: 1000 });
     if (error) continue; // bucket may not exist in a given environment
@@ -171,6 +205,15 @@ export async function discoverArtefacts(admin) {
       }
     }
   }
+
+  // (a) and (b) can find the same object; collapse so it is not deleted twice.
+  const seenPaths = new Set();
+  found.storage = found.storage.filter((entry) => {
+    const key = entry.bucket + "/" + entry.path;
+    if (seenPaths.has(key)) return false;
+    seenPaths.add(key);
+    return true;
+  });
 
   return found;
 }
@@ -239,6 +282,40 @@ export function createTeardown() {
 }
 
 /**
+ * Deletes everything discoverArtefacts() found, children first, each delete
+ * isolated and error-checked. Shared by the standalone reaper AND by every
+ * smoke test's teardown, so a script cannot clean up less thoroughly than the
+ * reaper would.
+ */
+export async function reapArtefacts(admin, found) {
+  const teardown = createTeardown();
+
+  // found.rows arrives in FK-safe order from discovery.
+  for (const r of found.rows) {
+    teardown.step(r.table + " (" + r.ids.length + ")", () =>
+      admin.from(r.table).delete().in("id", r.ids)
+    );
+  }
+  for (const entry of found.storage) {
+    teardown.step("storage/" + entry.bucket + " " + entry.path, () =>
+      admin.storage.from(entry.bucket).remove([entry.path])
+    );
+  }
+  for (const b of found.braiderProfiles) {
+    teardown.step("braider_profiles " + b.id, () =>
+      admin.from("braider_profiles").delete().eq("id", b.id)
+    );
+  }
+  // Users last: profiles cascade from auth.users, and deleting a user before
+  // its dependent rows is what produced the original FK failures.
+  for (const u of found.users) {
+    teardown.step("auth.users " + u.email, () => admin.auth.admin.deleteUser(u.id));
+  }
+
+  return teardown.run();
+}
+
+/**
  * The last thing a smoke test does. Re-discovers by marker and exits NON-ZERO
  * with full detail if anything survived, so a partial cleanup fails loudly
  * instead of printing "Done."
@@ -246,17 +323,31 @@ export function createTeardown() {
  * Usage:  await finishTeardown(admin, await teardown.run());
  */
 export async function finishTeardown(admin, failures = []) {
-  for (const f of failures) {
-    console.error("  x teardown step failed: " + f.label + " -- " + f.reason);
-  }
+  // NOTE: failures are printed AFTER the reap below, not before. The reap adds
+  // its own failures to this list, and printing first meant they were recorded
+  // and never shown — the process then exited 1 with no output at all, which
+  // is precisely the silent-failure bug this module exists to eliminate.
+  // Caught by smoke-test-profile-exposure during conversion.
 
+  // Reap by MARKER before verifying. This is what makes cleanup independent of
+  // the run that created the mess: a script that crashed before recording an
+  // id still has its fixtures removed, because discovery finds them by email
+  // domain and user-id folder rather than from a variable.
   let found;
   try {
+    found = await discoverArtefacts(admin);
+    if (countArtefacts(found) > 0) {
+      failures = failures.concat(await reapArtefacts(admin, found));
+    }
     found = await discoverArtefacts(admin);
   } catch (e) {
     console.error("  x could not verify teardown: " + e.message);
     process.exitCode = 1;
     return;
+  }
+
+  for (const f of failures) {
+    console.error("  x teardown step failed: " + f.label + " -- " + f.reason);
   }
 
   const n = countArtefacts(found);

@@ -16,6 +16,7 @@
 //   9. Cleans up every row, every uploaded object, and the admin flag
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
+import { finishTeardown } from "./lib/smoketest.mjs";
 import WebSocket from "ws";
 
 globalThis.WebSocket = WebSocket;
@@ -354,32 +355,14 @@ try {
 
   console.log("\nAll checks passed — Expert Network works end-to-end against real Supabase.");
 } finally {
-  console.log("\nCleaning up (FK-safe order)...");
-  if (ids.referralId) await admin.from("expert_referrals").delete().eq("id", ids.referralId);
-  if (ids.sessionId) await admin.from("braidcare_sessions").delete().eq("id", ids.sessionId);
-  if (ids.bookingId) await admin.from("bookings").delete().eq("id", ids.bookingId);
-  if (ids.serviceId) await admin.from("services").delete().eq("id", ids.serviceId);
-  if (ids.braiderProfileId)
-    await admin.from("braider_profiles").delete().eq("id", ids.braiderProfileId);
-  for (const expertProfileId of [ids.expertProfileId, ids.otherExpertProfileId]) {
-    if (!expertProfileId) continue;
-    const { data: ep } = await admin
-      .from("expert_profiles")
-      .select("credential_doc_path")
-      .eq("id", expertProfileId)
-      .single();
-    if (ep?.credential_doc_path)
-      await admin.storage.from("expert-credentials").remove([ep.credential_doc_path]);
-    await admin.from("expert_profiles").delete().eq("id", expertProfileId);
-  }
-  for (const userId of [
-    ids.expertUserId,
-    ids.otherExpertUserId,
-    ids.adminUserId,
-    ids.clientId,
-    ids.braiderUserId,
-  ]) {
-    if (userId) await admin.auth.admin.deleteUser(userId);
-  }
-  console.log("Done.");
+  // Cleanup is marker-based and self-verifying - see scripts/lib/smoketest.mjs.
+  //
+  // finishTeardown() reaps every @braidr.internal.test fixture (so a crash
+  // before an id was recorded still gets cleaned), checks the .error each
+  // delete RETURNS rather than assuming a failure would throw, and exits
+  // NON-ZERO listing whatever survived. The teardown this replaced deleted by
+  // captured ids and read no errors at all, which is how a publicly listed
+  // braider was stranded for three days on 2026-08-31.
+  console.log("\nCleaning up...");
+  await finishTeardown(admin);
 }

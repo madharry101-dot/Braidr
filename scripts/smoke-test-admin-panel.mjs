@@ -12,6 +12,7 @@
 //   5. Cleans up every row, user, and Stripe object it created
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
+import { finishTeardown } from "./lib/smoketest.mjs";
 import Stripe from "stripe";
 import WebSocket from "ws";
 
@@ -411,18 +412,14 @@ try {
 
   console.log("\nAll checks passed — Admin Panel works end-to-end against real Supabase + Stripe.");
 } finally {
-  console.log("\nCleaning up (FK-safe order)...");
-  if (ids.bookingId) await admin.from("bookings").delete().eq("id", ids.bookingId);
-  if (ids.serviceId) await admin.from("services").delete().eq("id", ids.serviceId);
-  if (ids.braiderProfileId)
-    await admin.from("braider_profiles").delete().eq("id", ids.braiderProfileId);
-  for (const userId of [
-    ids.adminUserId,
-    ids.clientNoHistoryId,
-    ids.clientWithHistoryId,
-    ids.braiderUserId,
-  ]) {
-    if (userId) await admin.auth.admin.deleteUser(userId).catch(() => {});
-  }
-  console.log("Done.");
+  // Cleanup is marker-based and self-verifying - see scripts/lib/smoketest.mjs.
+  //
+  // finishTeardown() reaps every @braidr.internal.test fixture (so a crash
+  // before an id was recorded still gets cleaned), checks the .error each
+  // delete RETURNS rather than assuming a failure would throw, and exits
+  // NON-ZERO listing whatever survived. The teardown this replaced deleted by
+  // captured ids and read no errors at all, which is how a publicly listed
+  // braider was stranded for three days on 2026-08-31.
+  console.log("\nCleaning up...");
+  await finishTeardown(admin);
 }

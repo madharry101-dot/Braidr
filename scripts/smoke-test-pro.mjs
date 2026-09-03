@@ -14,6 +14,7 @@
 //   10. Cleans up every row and every uploaded object it created
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
+import { finishTeardown } from "./lib/smoketest.mjs";
 import WebSocket from "ws";
 
 globalThis.WebSocket = WebSocket;
@@ -330,25 +331,14 @@ try {
 
   console.log("\nAll checks passed — Braidr Pro pathway works end-to-end against real Supabase.");
 } finally {
-  console.log("\nCleaning up (FK-safe order)...");
-  if (ids.bookingId) {
-    await admin.from("income_records").delete().eq("booking_id", ids.bookingId);
-    await admin.from("bookings").delete().eq("id", ids.bookingId);
-  }
-  if (ids.braiderProfileId) {
-    const { data: progress } = await admin
-      .from("braidr_pro_progress")
-      .select("step3_insurance_doc_path")
-      .eq("braider_id", ids.braiderProfileId)
-      .single();
-    if (progress?.step3_insurance_doc_path) {
-      await admin.storage.from("insurance-documents").remove([progress.step3_insurance_doc_path]);
-    }
-    await admin.from("braidr_pro_progress").delete().eq("braider_id", ids.braiderProfileId);
-    await admin.from("services").delete().eq("braider_id", ids.braiderProfileId);
-    await admin.from("braider_profiles").delete().eq("id", ids.braiderProfileId);
-  }
-  if (ids.braiderUserId) await admin.auth.admin.deleteUser(ids.braiderUserId);
-  if (ids.clientId) await admin.auth.admin.deleteUser(ids.clientId);
-  console.log("Done.");
+  // Cleanup is marker-based and self-verifying - see scripts/lib/smoketest.mjs.
+  //
+  // finishTeardown() reaps every @braidr.internal.test fixture (so a crash
+  // before an id was recorded still gets cleaned), checks the .error each
+  // delete RETURNS rather than assuming a failure would throw, and exits
+  // NON-ZERO listing whatever survived. The teardown this replaced deleted by
+  // captured ids and read no errors at all, which is how a publicly listed
+  // braider was stranded for three days on 2026-08-31.
+  console.log("\nCleaning up...");
+  await finishTeardown(admin);
 }

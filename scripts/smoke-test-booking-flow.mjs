@@ -16,6 +16,7 @@
 // NOT required for this script itself (it signs its own webhook event).
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
+import { finishTeardown } from "./lib/smoketest.mjs";
 import Stripe from "stripe";
 import WebSocket from "ws";
 
@@ -245,16 +246,14 @@ try {
 
   console.log("\nAll checks passed — booking + Stripe Checkout + webhook flow works end-to-end.");
 } finally {
-  console.log("\nCleaning up (FK-safe order)...");
-  if (ids.bookingId) {
-    await admin.from("income_records").delete().eq("booking_id", ids.bookingId);
-    await admin.from("braidcare_sessions").delete().eq("booking_id", ids.bookingId);
-    await admin.from("bookings").delete().eq("id", ids.bookingId);
-  }
-  if (ids.serviceId) await admin.from("services").delete().eq("id", ids.serviceId);
-  if (ids.braiderProfileId)
-    await admin.from("braider_profiles").delete().eq("id", ids.braiderProfileId);
-  if (ids.clientId) await admin.auth.admin.deleteUser(ids.clientId);
-  if (ids.braiderUserId) await admin.auth.admin.deleteUser(ids.braiderUserId);
-  console.log("Done.");
+  // Cleanup is marker-based and self-verifying - see scripts/lib/smoketest.mjs.
+  //
+  // finishTeardown() reaps every @braidr.internal.test fixture (so a crash
+  // before an id was recorded still gets cleaned), checks the .error each
+  // delete RETURNS rather than assuming a failure would throw, and exits
+  // NON-ZERO listing whatever survived. The teardown this replaced deleted by
+  // captured ids and read no errors at all, which is how a publicly listed
+  // braider was stranded for three days on 2026-08-31.
+  console.log("\nCleaning up...");
+  await finishTeardown(admin);
 }

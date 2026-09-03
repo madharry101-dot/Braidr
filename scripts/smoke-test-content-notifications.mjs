@@ -16,6 +16,7 @@
 import { readFileSync } from "fs";
 import sharp from "sharp";
 import { createClient } from "@supabase/supabase-js";
+import { createTeardown, finishTeardown } from "./lib/smoketest.mjs";
 import WebSocket from "ws";
 
 globalThis.WebSocket = WebSocket;
@@ -360,33 +361,29 @@ try {
     "\nAll checks passed — content moderation + notifications work end-to-end against real Supabase."
   );
 } finally {
-  console.log("\nCleaning up (FK-safe order)...");
-  // Deleting the profile cascades braider_portfolio_photos but NOT the
-  // objects those rows pointed at, and portfolio-photos is a PUBLIC bucket
-  // — so a run that fails between upload and removal would otherwise leave
-  // real images sitting at stable unauthenticated URLs.
-  if (ids.braiderUserId) {
-    const { data: leftovers } = await admin.storage
-      .from("portfolio-photos")
-      .list(ids.braiderUserId);
-    if (leftovers?.length) {
-      await admin.storage
-        .from("portfolio-photos")
-        .remove(leftovers.map((o) => `${ids.braiderUserId}/${o.name}`));
-    }
-  }
-  if (ids.braiderProfileId)
-    await admin.from("braider_profiles").delete().eq("id", ids.braiderProfileId);
-  await admin
-    .from("content_moderation_log")
-    .delete()
-    .eq("target_user_id", ids.braiderUserId ?? "");
-  await admin
-    .from("platform_announcements")
-    .delete()
-    .eq("admin_id", ids.adminUserId ?? "");
-  for (const userId of [ids.adminUserId, ids.braiderUserId]) {
-    if (userId) await admin.auth.admin.deleteUser(userId).catch(() => {});
-  }
-  console.log("Done.");
+  // Marker-based and self-verifying - see scripts/lib/smoketest.mjs.
+  console.log("\nCleaning up...");
+  const teardown = createTeardown();
+
+  // These two are NOT reachable by marker discovery: they key on the admin or
+  // target user id rather than hanging off the fixture user in a way discovery
+  // walks, so they must be named explicitly.
+  teardown.step("content_moderation_log", () =>
+    admin
+      .from("content_moderation_log")
+      .delete()
+      .eq("target_user_id", ids.braiderUserId ?? "")
+  );
+  teardown.step("platform_announcements", () =>
+    admin
+      .from("platform_announcements")
+      .delete()
+      .eq("admin_id", ids.adminUserId ?? "")
+  );
+
+  // The uploaded portfolio objects need no step here: discovery now lists each
+  // smoke-test user's id FOLDER in every bucket, because objects uploaded
+  // through a real route are named by that route and carry no smoketest-
+  // prefix. That matters here - portfolio-photos is a PUBLIC bucket.
+  await finishTeardown(admin, await teardown.run());
 }

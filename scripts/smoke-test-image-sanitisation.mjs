@@ -18,6 +18,7 @@
 import { readFileSync } from "fs";
 import sharp from "sharp";
 import { createClient } from "@supabase/supabase-js";
+import { finishTeardown } from "./lib/smoketest.mjs";
 import WebSocket from "ws";
 
 globalThis.WebSocket = WebSocket;
@@ -168,18 +169,14 @@ try {
 
   console.log("\nAll checks passed — uploads are EXIF-stripped and type-verified at the door.");
 } finally {
+  // Cleanup is marker-based and self-verifying - see scripts/lib/smoketest.mjs.
+  //
+  // finishTeardown() reaps every @braidr.internal.test fixture (so a crash
+  // before an id was recorded still gets cleaned), checks the .error each
+  // delete RETURNS rather than assuming a failure would throw, and exits
+  // NON-ZERO listing whatever survived. The teardown this replaced deleted by
+  // captured ids and read no errors at all, which is how a publicly listed
+  // braider was stranded for three days on 2026-08-31.
   console.log("\nCleaning up...");
-  if (ids.braiderProfileId) {
-    const { data: rows } = await admin
-      .from("braider_portfolio_photos")
-      .select("storage_path")
-      .eq("braider_id", ids.braiderProfileId);
-    for (const r of rows ?? []) {
-      await admin.storage.from("portfolio-photos").remove([r.storage_path]);
-    }
-    await admin.from("braider_portfolio_photos").delete().eq("braider_id", ids.braiderProfileId);
-    await admin.from("braider_profiles").delete().eq("id", ids.braiderProfileId);
-  }
-  if (ids.braiderUserId) await admin.auth.admin.deleteUser(ids.braiderUserId);
-  console.log("Done.");
+  await finishTeardown(admin);
 }

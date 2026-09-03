@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { createTeardown, finishTeardown } from "./lib/smoketest.mjs";
 import WebSocket from "ws";
 
 globalThis.WebSocket ??= WebSocket;
@@ -108,7 +109,26 @@ try {
 
   console.log("\nAll checks passed.");
 } finally {
-  await admin.from("braidcare_subscriptions").delete().eq("user_id", userId);
-  await admin.from("profiles").update({ braidcare_client_subscribed: false }).eq("id", userId);
-  console.log("(cleaned up)");
+  // This script is the one exception to marker-based cleanup, and the reason
+  // is worth stating plainly: it creates NO user of its own. It operates on
+  // the seeded demo-client@demo.braidr account, which is PROTECTED - discovery
+  // will never return it, and must not, or a reaper would eat the demo
+  // marketplace.
+  //
+  // So its artefacts have to be named explicitly. If this ever fails silently,
+  // a real seeded account is left permanently flagged as a paying BraidCare
+  // subscriber. finishTeardown still runs, to surface a failure loudly and to
+  // catch anything a future edit introduces.
+  //
+  // The proper fix is to give this script its own fixture user. Flagged rather
+  // than worked around.
+  console.log("\nCleaning up...");
+  const teardown = createTeardown();
+  teardown.step("braidcare_subscriptions", () =>
+    admin.from("braidcare_subscriptions").delete().eq("user_id", userId)
+  );
+  teardown.step("profiles.braidcare_client_subscribed reset", () =>
+    admin.from("profiles").update({ braidcare_client_subscribed: false }).eq("id", userId)
+  );
+  await finishTeardown(admin, await teardown.run());
 }

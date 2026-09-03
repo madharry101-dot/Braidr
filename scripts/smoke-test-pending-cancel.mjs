@@ -4,6 +4,7 @@
 //   node scripts/smoke-test-pending-cancel.mjs   (dev server on :3000)
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { finishTeardown } from "./lib/smoketest.mjs";
 import WebSocket from "ws";
 
 globalThis.WebSocket ??= WebSocket;
@@ -164,10 +165,14 @@ try {
 
   console.log("\nAll checks passed.");
 } finally {
-  for (const id of [ids.a, ids.b]) if (id) await admin.from("bookings").delete().eq("id", id);
-  if (ids.serviceId) await admin.from("services").delete().eq("id", ids.serviceId);
-  if (ids.braiderProfileId)
-    await admin.from("braider_profiles").delete().eq("id", ids.braiderProfileId);
-  for (const id of [ids.clientId, ids.braiderUserId]) if (id) await admin.auth.admin.deleteUser(id);
-  console.log("(cleaned up)");
+  // Cleanup is marker-based and self-verifying - see scripts/lib/smoketest.mjs.
+  //
+  // finishTeardown() reaps every @braidr.internal.test fixture (so a crash
+  // before an id was recorded still gets cleaned), checks the .error each
+  // delete RETURNS rather than assuming a failure would throw, and exits
+  // NON-ZERO listing whatever survived. The teardown this replaced deleted by
+  // captured ids and read no errors at all, which is how a publicly listed
+  // braider was stranded for three days on 2026-08-31.
+  console.log("\nCleaning up...");
+  await finishTeardown(admin);
 }

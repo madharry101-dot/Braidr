@@ -15,6 +15,7 @@
 //   7. Cleans up every row and every uploaded object it created
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
+import { finishTeardown } from "./lib/smoketest.mjs";
 import sharp from "sharp";
 import WebSocket from "ws";
 
@@ -283,24 +284,14 @@ try {
     "\nAll checks passed — BraidCare flow works end-to-end against real Supabase + Anthropic."
   );
 } finally {
-  console.log("\nCleaning up (FK-safe order)...");
-  if (ids.sessionId) {
-    const { data: s } = await admin
-      .from("braidcare_sessions")
-      .select("photo_paths")
-      .eq("id", ids.sessionId)
-      .single();
-    if (s?.photo_paths?.length) await admin.storage.from("scalp-photos").remove(s.photo_paths);
-    await admin.from("braidcare_sessions").delete().eq("id", ids.sessionId);
-  }
-  if (ids.bookingId) {
-    await admin.from("income_records").delete().eq("booking_id", ids.bookingId);
-    await admin.from("bookings").delete().eq("id", ids.bookingId);
-  }
-  if (ids.serviceId) await admin.from("services").delete().eq("id", ids.serviceId);
-  if (ids.braiderProfileId)
-    await admin.from("braider_profiles").delete().eq("id", ids.braiderProfileId);
-  if (ids.clientId) await admin.auth.admin.deleteUser(ids.clientId);
-  if (ids.braiderUserId) await admin.auth.admin.deleteUser(ids.braiderUserId);
-  console.log("Done.");
+  // Cleanup is marker-based and self-verifying - see scripts/lib/smoketest.mjs.
+  //
+  // finishTeardown() reaps every @braidr.internal.test fixture (so a crash
+  // before an id was recorded still gets cleaned), checks the .error each
+  // delete RETURNS rather than assuming a failure would throw, and exits
+  // NON-ZERO listing whatever survived. The teardown this replaced deleted by
+  // captured ids and read no errors at all, which is how a publicly listed
+  // braider was stranded for three days on 2026-08-31.
+  console.log("\nCleaning up...");
+  await finishTeardown(admin);
 }

@@ -3,6 +3,7 @@
 // blocks the anon-key client from reading it. Cleans up after itself.
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
+import { finishTeardown } from "./lib/smoketest.mjs";
 import WebSocket from "ws";
 
 // Node 20 has no global WebSocket (added unflagged in Node 22); supabase-js
@@ -77,9 +78,14 @@ try {
 
   console.log("\nAll checks passed.");
 } finally {
-  if (userId) {
-    console.log("Cleaning up test user...");
-    await admin.auth.admin.deleteUser(userId); // cascades to profiles + braider_profiles
-    console.log("Done.");
-  }
+  // Cleanup is marker-based and self-verifying - see scripts/lib/smoketest.mjs.
+  //
+  // finishTeardown() reaps every @braidr.internal.test fixture (so a crash
+  // before an id was recorded still gets cleaned), checks the .error each
+  // delete RETURNS rather than assuming a failure would throw, and exits
+  // NON-ZERO listing whatever survived. The teardown this replaced deleted by
+  // captured ids and read no errors at all, which is how a publicly listed
+  // braider was stranded for three days on 2026-08-31.
+  console.log("\nCleaning up...");
+  await finishTeardown(admin);
 }

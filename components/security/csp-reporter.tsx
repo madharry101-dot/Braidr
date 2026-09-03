@@ -30,6 +30,14 @@ import { useEffect } from "react";
  *
  * This component renders nothing and never throws into the page: a
  * diagnostics channel must not be able to break the site it is measuring.
+ *
+ * WHAT A ROW MEANS CHANGED ON 2026-09-03, when the policy went from
+ * Report-Only to enforcing. Under Report-Only a row was a sample — something
+ * that *would* have been blocked. Now a row means something WAS blocked, for
+ * a real user, on a real page. Rows are an alerting signal, not data
+ * collection: a sudden appearance of them after a deploy means that deploy
+ * broke something. The first blog post ever published is the one page load
+ * still worth watching deliberately (blog_posts was empty through every test).
  */
 
 const ENDPOINT = "/api/csp-report";

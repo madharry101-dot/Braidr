@@ -1,30 +1,57 @@
 // R-04 — security headers.
 //
-// The CSP ships in REPORT-ONLY mode. Nothing is blocked; browsers on real
-// traffic post what *would* have been blocked to /api/csp-report, and the
-// enforcing policy gets built from what actually fires. The alternative —
-// writing an allowlist from what we believe loads and enforcing it — breaks
-// production in ways that only show up for some users on some pages.
+// The CSP is ENFORCING as of 2026-09-03. It ran in Report-Only first and the
+// policy is going live UNCHANGED — nothing that was exercised needed any
+// directive widened.
 //
-// `script-src` deliberately keeps 'unsafe-inline' during this phase. Next's
-// App Router streams the RSC payload as ~15 inline <script> blocks per page,
-// so omitting it would bury every report under violations we already
-// understand and could not act on, and the external-origin signal we turned
-// this on to collect would be lost in the noise. Tightening script-src is the
-// decision that follows the data, not one to pre-empt here — and it is not
-// free: Next requires a page to be dynamically rendered to carry a nonce, and
-// Braidr currently prerenders 42 pages.
+// WHAT THE EVIDENCE ACTUALLY WAS, because the headline number is misleading.
+// The report-only table was empty after 69 hours, but traffic in that period
+// was two sign-ins and nothing else, so zero violations from ~zero visitors
+// proved nothing. The reporter was confirmed alive (a probe landed a row
+// instantly), and the window was then replaced with a deliberate crawl: 32
+// page loads across public, client, braider and admin surfaces on production,
+// zero violations. `img-src` was exercised separately by seeding a portfolio
+// photo — it had never been tested because storage had always been empty —
+// and served fine through /_next/image.
 //
-// The remaining headers have no report-only equivalent, so they enforce now.
-// Each is safe for this app specifically: nothing frames Braidr, nothing calls
-// getUserMedia (BraidCare's capture uses <input type="file" capture>, which is
-// an OS file picker and NOT governed by Permissions-Policy), and the site is
-// already HTTPS-only behind Netlify.
+// WHY ENFORCE BEFORE THE BLOG HAS CONTENT (founder's call, on record):
+// /blog/[slug] has never rendered, since blog_posts is empty. But the thing
+// we were worried about there — the inline <style> in the category filter —
+// is already covered by style-src 'unsafe-inline', so the blog cannot break
+// on that directive. What is untested is whether a blog page fires something
+// *else*: a small unknown, on pages with zero visitors, weighed against weeks
+// of no CSP protection at all while waiting for content that is not scheduled.
+// When the first post publishes, THAT page load is the remaining verification
+// — check csp_violation_reports immediately after.
 //
-// HSTS deliberately omits `preload`. Submitting to the browser preload list
-// is effectively irreversible and would bind every future subdomain to HTTPS;
+// The reporter (components/security/csp-reporter.tsx) stays running. Its
+// meaning changes with this switch: in report-only a row was a sample, in
+// enforce mode a row means something was actually BLOCKED for a real user.
+// Rows are now an alerting signal, not data collection.
+//
+// `script-src` still keeps 'unsafe-inline'. Next's App Router streams the RSC
+// payload as ~15 inline <script> blocks per page, so removing it needs a
+// nonce — and Next requires a page to be dynamically rendered to carry one,
+// which would convert Braidr's ~42 prerendered pages into per-request
+// function invocations. That is a separate decision with a real cost.
+//
+// The other headers were already enforcing. Each is safe for this app
+// specifically: nothing frames Braidr, nothing calls getUserMedia (BraidCare's
+// capture uses <input type="file" capture>, an OS file picker NOT governed by
+// Permissions-Policy), and the site is HTTPS-only behind Netlify.
+//
+// HSTS deliberately omits `preload`. Submitting to the browser preload list is
+// effectively irreversible and would bind every future subdomain to HTTPS;
 // that is a decision to take on purpose, not a side effect of adding headers.
-const CSP_REPORT_ONLY = [
+// Netlify injects its own HSTS *with* preload regardless, so this is not
+// actually ours to control until Braidr is on its own domain.
+//
+// RESIDUAL, not covered by any of the above: every observation came from one
+// embedded Chromium. Safari and Firefox differ on CSP handling — notably
+// neither implements ReportingObserver, so they fall back to the
+// securitypolicyviolation listener, and their directive support is not
+// identical. Treat non-Chromium browsers as untested.
+const CSP = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
@@ -59,7 +86,7 @@ const CSP_REPORT_ONLY = [
 ].join("; ");
 
 const SECURITY_HEADERS = [
-  { key: "Content-Security-Policy-Report-Only", value: CSP_REPORT_ONLY },
+  { key: "Content-Security-Policy", value: CSP },
   // Names the group that `report-to csp` above refers to, for browsers on the
   // Reporting API rather than the legacy report-uri.
   {

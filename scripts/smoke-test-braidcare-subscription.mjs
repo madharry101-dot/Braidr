@@ -7,7 +7,7 @@
 import { readFileSync } from "node:fs";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
-import { createTeardown, finishTeardown } from "./lib/smoketest.mjs";
+import { finishTeardown, smoketestEmail } from "./lib/smoketest.mjs";
 import WebSocket from "ws";
 
 globalThis.WebSocket ??= WebSocket;
@@ -34,18 +34,38 @@ const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_RO
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+// Throws rather than calling process.exit(). process.exit() terminates
+// immediately and does NOT run finally blocks, so an assertion failure used to
+// skip teardown altogether — the one circumstance in which cleanup matters
+// most. Throwing lets the finally block run and the fixture get reaped.
 const assert = (cond, msg) => {
-  if (!cond) {
-    console.error("FAIL:", msg);
-    process.exit(1);
-  }
+  if (!cond) throw new Error("ASSERTION FAILED: " + msg);
   console.log("  OK —", msg);
 };
 
-const { data: list } = await admin.auth.admin.listUsers({ page: 1, perPage: 200 });
-const client = list.users.find((u) => u.email === "demo-client@demo.braidr");
-assert(client, "found demo-client@demo.braidr");
-const userId = client.id;
+// Its own marked fixture, NOT the seeded demo-client@demo.braidr account.
+//
+// This script used to find that seeded account and mutate it — insert a
+// braidcare_subscriptions row and set profiles.braidcare_client_subscribed.
+// Two things were wrong with that. A silent teardown failure left a real,
+// permanent demo account flagged as a paying subscriber; and the artefacts
+// carried no marker, so reap-smoketest-data.mjs could not find them and must
+// not be made to guess, because guessing at unmarked data means reaching into
+// @demo.braidr, which is PROTECTED.
+//
+// Nothing here ever needed that specific account: the webhook handler only
+// reads metadata.user_id, so any user with a profiles row exercises the same
+// path. role: "client" so handle_new_user() creates the profile the handler
+// then updates.
+const { data: created, error: createError } = await admin.auth.admin.createUser({
+  email: smoketestEmail("braidcare-sub"),
+  password: "correct-horse-battery-staple",
+  email_confirm: true,
+  user_metadata: { role: "client", full_name: "BraidCare Subscription Smoke Test Client" },
+});
+if (createError) throw new Error("could not create fixture user: " + createError.message);
+const userId = created.user.id;
+console.log("Fixture client:", created.user.email);
 const subId = `sub_smoke_${Date.now()}`;
 
 async function fireSubscriptionEvent(type, status) {
@@ -109,26 +129,11 @@ try {
 
   console.log("\nAll checks passed.");
 } finally {
-  // This script is the one exception to marker-based cleanup, and the reason
-  // is worth stating plainly: it creates NO user of its own. It operates on
-  // the seeded demo-client@demo.braidr account, which is PROTECTED - discovery
-  // will never return it, and must not, or a reaper would eat the demo
-  // marketplace.
-  //
-  // So its artefacts have to be named explicitly. If this ever fails silently,
-  // a real seeded account is left permanently flagged as a paying BraidCare
-  // subscriber. finishTeardown still runs, to surface a failure loudly and to
-  // catch anything a future edit introduces.
-  //
-  // The proper fix is to give this script its own fixture user. Flagged rather
-  // than worked around.
+  // Standard marker-based cleanup now that the fixture is marked. No explicit
+  // steps are needed: braidcare_subscriptions.user_id references profiles(id)
+  // ON DELETE CASCADE, profiles cascade from auth.users, and discovery also
+  // lists braidcare_subscriptions in USER_SCOPED_TABLES — so the row goes
+  // three different ways and finishTeardown verifies it actually did.
   console.log("\nCleaning up...");
-  const teardown = createTeardown();
-  teardown.step("braidcare_subscriptions", () =>
-    admin.from("braidcare_subscriptions").delete().eq("user_id", userId)
-  );
-  teardown.step("profiles.braidcare_client_subscribed reset", () =>
-    admin.from("profiles").update({ braidcare_client_subscribed: false }).eq("id", userId)
-  );
-  await finishTeardown(admin, await teardown.run());
+  await finishTeardown(admin);
 }

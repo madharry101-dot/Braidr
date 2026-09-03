@@ -29,11 +29,12 @@ const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
 const admin = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
+// Throws rather than calling process.exit(). process.exit() terminates the
+// process immediately and does NOT run finally blocks, so an assertion failure
+// used to skip this script's teardown entirely — the one circumstance in which
+// cleanup matters most. Same bug as smoke-test-braidcare-subscription had.
 const assert = (c, m) => {
-  if (!c) {
-    console.error("FAIL:", m);
-    process.exit(1);
-  }
+  if (!c) throw new Error("ASSERTION FAILED: " + m);
   console.log("  OK —", m);
 };
 

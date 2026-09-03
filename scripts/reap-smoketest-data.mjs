@@ -18,14 +18,6 @@
 // braiders. Only @braidr.internal.test addresses are in scope. That exclusion
 // is enforced in scripts/lib/smoketest.mjs (isProtectedEmail) rather than left
 // to whoever reads this comment — see the marker note there.
-//
-// KNOWN GAP, deliberately not papered over: smoke-test-braidcare-subscription
-// creates no user of its own. It mutates the seeded demo-client account
-// (inserting a braidcare_subscriptions row and setting
-// profiles.braidcare_client_subscribed). Those artefacts carry no marker, so
-// this reaper cannot find them and must not guess — reaping by account would
-// mean touching protected demo data. That script needs its own fixture user;
-// flagged rather than worked around.
 import { readFileSync } from "fs";
 import { createClient } from "@supabase/supabase-js";
 import WebSocket from "ws";
@@ -41,6 +33,11 @@ import {
 
 globalThis.WebSocket = WebSocket;
 
+// NOTE on the process.exit() calls below: unlike the smoke tests, this script
+// has no finally block and nothing pending at any exit point — every one
+// follows a completed await. process.exit() skipping a finally is precisely
+// the bug that was found in two of the smoke tests, so it is worth stating
+// that this file was checked rather than leaving it to be re-derived.
 const DRY_RUN = process.argv.includes("--dry-run");
 
 const env = Object.fromEntries(

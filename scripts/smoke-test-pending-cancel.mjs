@@ -65,7 +65,12 @@ try {
 
   const { data: bp } = await admin
     .from("braider_profiles")
-    .insert({ user_id: ids.braiderUserId, city: "London" })
+    // is_active MUST stay true here. This script creates its pending booking
+    // through the real POST /api/bookings, which rejects an inactive braider
+    // with BRAIDER_NOT_FOUND (app/api/bookings/route.ts:48). With false there
+    // is no pending booking to cancel and no held slot to release, which is
+    // the entire subject of the test.
+    .insert({ user_id: ids.braiderUserId, city: "London", is_active: true })
     .select("id")
     .single();
   ids.braiderProfileId = bp.id;

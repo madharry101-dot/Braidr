@@ -71,7 +71,12 @@ try {
   console.log("2. Creating braider_profiles (payment-ready) + a service...");
   const { data: braiderProfile, error: bpError } = await admin
     .from("braider_profiles")
-    .insert({ user_id: ids.braiderUserId, city: "London" })
+    // is_active MUST stay true here. This script books through the real
+    // POST /api/bookings, and that route rejects with BRAIDER_NOT_FOUND when
+    // the braider is inactive (app/api/bookings/route.ts:48). With false the
+    // booking never gets created and every later step — the Stripe Checkout
+    // session, the signed webhook, the income record — has nothing to act on.
+    .insert({ user_id: ids.braiderUserId, city: "London", is_active: true })
     .select("id")
     .single();
   if (bpError) throw bpError;

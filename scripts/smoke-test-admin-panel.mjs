@@ -105,7 +105,12 @@ try {
   ids.braiderUserId = braiderUser.id;
   const { data: braiderProfile } = await admin
     .from("braider_profiles")
-    .insert({ user_id: ids.braiderUserId, city: "London" })
+    // is_active: false so a stranded profile cannot reach the public
+    // directory. braider_profiles.is_active defaults to TRUE, and on
+    // 2026-08-31 a failed teardown left one listed publicly for three days.
+    // Nothing in this script reads the braider as another user or through
+    // public_profiles, so hiding it costs the test nothing.
+    .insert({ user_id: ids.braiderUserId, city: "London", is_active: false })
     .select("id")
     .single();
   ids.braiderProfileId = braiderProfile.id;
@@ -269,7 +274,16 @@ try {
     .eq("id", ids.braiderProfileId)
     .single();
   assert(verifiedBraider.is_verified === true, "braider should now be verified");
-  assert(verifiedBraider.is_active === true, "is_active must be untouched by verification");
+  // Asserting false rather than true is deliberate and is a stronger check.
+  // The profile is created is_active: false (see the insert above), so this
+  // now proves verification does not flip a braider INTO the public directory
+  // — which is the direction that actually matters. The old assertion of
+  // `=== true` would have passed even if the verify route set is_active: true
+  // explicitly, because the row already started that way.
+  assert(
+    verifiedBraider.is_active === false,
+    "verification must not change is_active — a rejected or newly verified braider must not be auto-listed"
+  );
   console.log("   OK");
 
   console.log("7. Dispute flow: raise -> dismiss (status restored)...");

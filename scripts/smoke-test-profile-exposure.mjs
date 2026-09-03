@@ -75,7 +75,12 @@ try {
 
   const { data: bp } = await admin
     .from("braider_profiles")
-    .insert({ user_id: ids.braiderUserId, city: "London" })
+    // is_active MUST stay true here. The public_profiles view only includes
+    // braiders with is_active = true, and this script's whole purpose is to
+    // prove what that view does and does not expose. With false the braider
+    // is absent from the view, every assertion about it passes vacuously, and
+    // the test would silently stop checking the leak it exists to catch.
+    .insert({ user_id: ids.braiderUserId, city: "London", is_active: true })
     .select("id")
     .single();
   ids.braiderProfileId = bp.id;

@@ -66,7 +66,12 @@ try {
   console.log("4. Confirming braider_profiles insert works + RLS trigger guard is active...");
   const { error: bpError } = await admin
     .from("braider_profiles")
-    .insert({ user_id: userId, city: "London" });
+    // is_active: false so a stranded profile cannot reach the public
+    // directory. braider_profiles.is_active defaults to TRUE, and on
+    // 2026-08-31 a failed teardown left one listed publicly for three days.
+    // Nothing in this script reads the braider as another user or through
+    // public_profiles, so hiding it costs the test nothing.
+    .insert({ user_id: userId, city: "London", is_active: false });
   if (bpError) throw bpError;
   console.log("   OK — braider_profiles row created");
 

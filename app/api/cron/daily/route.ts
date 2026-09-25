@@ -6,7 +6,8 @@ import { runPurgeBraidcarePhotos } from "@/lib/cron/purge-braidcare-photos";
 import { runAccountDeletion } from "@/lib/cron/account-deletion";
 import { runExpireStaleBookings } from "@/lib/cron/expire-stale-bookings";
 import { sendQueuedNewsletters } from "@/lib/cron/send-newsletter";
-import { ok, fail } from "@/lib/api/response";
+import { ok } from "@/lib/api/response";
+import { rejectUnauthorisedCron } from "@/lib/cron/auth";
 
 // GET /api/cron/daily — the only cron actually registered in vercel.json.
 // Vercel's Hobby plan caps both cron *frequency* (daily) and cron *job
@@ -19,10 +20,8 @@ import { ok, fail } from "@/lib/api/response";
 // benefit from running more than once a day; hmrc-deadline-reminders
 // genuinely only needs to run once daily regardless.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return fail("UNAUTHENTICATED", "Not authorized.", 401);
-  }
+  const unauthorised = rejectUnauthorisedCron(request);
+  if (unauthorised) return unauthorised;
 
   const admin = createAdminClient();
   const results: Record<string, unknown> = {};

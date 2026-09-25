@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runPurgeBraidcarePhotos } from "@/lib/cron/purge-braidcare-photos";
 import { ok, fail } from "@/lib/api/response";
+import { rejectUnauthorisedCron } from "@/lib/cron/auth";
 
 // GET /api/cron/purge-braidcare-photos — GDPR-04 / Privacy §7. Deletes
 // scalp-photo storage objects (and clears the row's photo_paths) 90 days
@@ -8,10 +9,8 @@ import { ok, fail } from "@/lib/api/response";
 // netlify/functions/cron-purge-braidcare-photos.mjs; runnable by hand with
 // the CRON_SECRET bearer token.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return fail("UNAUTHENTICATED", "Not authorized.", 401);
-  }
+  const unauthorised = rejectUnauthorisedCron(request);
+  if (unauthorised) return unauthorised;
 
   try {
     const result = await runPurgeBraidcarePhotos(createAdminClient());

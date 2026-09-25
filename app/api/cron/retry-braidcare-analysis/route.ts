@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runRetryBraidcareAnalysis } from "@/lib/cron/retry-braidcare-analysis";
 import { ok, fail } from "@/lib/api/response";
+import { rejectUnauthorisedCron } from "@/lib/cron/auth";
 
 // GET /api/cron/retry-braidcare-analysis — TRD 5.4's "queued; cron retries
 // every 15 minutes for up to 4 hours" for whichever attempt the live
@@ -8,10 +9,8 @@ import { ok, fail } from "@/lib/api/response";
 // directly — see /api/cron/release-payouts's comment on why. Kept for
 // manual/curl invocation when debugging.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return fail("UNAUTHENTICATED", "Not authorized.", 401);
-  }
+  const unauthorised = rejectUnauthorisedCron(request);
+  if (unauthorised) return unauthorised;
 
   try {
     const result = await runRetryBraidcareAnalysis(createAdminClient());

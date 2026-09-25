@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { runReleasePayouts } from "@/lib/cron/release-payouts";
 import { ok, fail } from "@/lib/api/response";
+import { rejectUnauthorisedCron } from "@/lib/cron/auth";
 
 // GET /api/cron/release-payouts — not in the TRD's endpoint table; exists
 // because the separate-charges-and-transfers payment model (see the
@@ -11,10 +12,8 @@ import { ok, fail } from "@/lib/api/response";
 // limit on the Hobby plan. This route stays for manual/curl invocation
 // (with the CRON_SECRET bearer token) when debugging.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return fail("UNAUTHENTICATED", "Not authorized.", 401);
-  }
+  const unauthorised = rejectUnauthorisedCron(request);
+  if (unauthorised) return unauthorised;
 
   try {
     const result = await runReleasePayouts(createAdminClient());

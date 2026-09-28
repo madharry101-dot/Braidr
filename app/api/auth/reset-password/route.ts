@@ -6,7 +6,7 @@ import { validate } from "@/lib/api/validate";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import { ok, fail } from "@/lib/api/response";
 import { checkRateLimit, clientIp, identifierForEmail } from "@/lib/api/rate-limit";
-import { sendGoogleSignInNotice } from "@/lib/email/google-sign-in-notice";
+import { deliverPasswordReset } from "@/lib/auth/reset-password-delivery";
 
 // POST /api/auth/reset-password — TRD 4.2 / v2.0 §4.1.
 // FR-AUTH-01.5: reset link expiry of 1 hour is a Supabase Auth project
@@ -61,27 +61,9 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const redirectTo = `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`;
 
-  after(async () => {
-    // Logged on both sides: if `after` ever stops running on this platform,
-    // the only symptom would be reset emails silently not arriving, and the
-    // absence of these lines is what makes that visible.
-    console.info("[reset-password] post-response delivery starting", {
-      google_only: Boolean(googleOnly),
-    });
-    try {
-      if (googleOnly) {
-        await sendGoogleSignInNotice(email);
-      } else {
-        // Supabase sends nothing for an address it doesn't know, which is
-        // exactly the behaviour we want: one code path, two outcomes, no
-        // difference visible from outside.
-        await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-      }
-      console.info("[reset-password] post-response delivery done");
-    } catch (e) {
-      console.error("[reset-password] post-response delivery FAILED", e);
-    }
-  });
+  after(() =>
+    deliverPasswordReset({ email, googleOnly: Boolean(googleOnly), supabase, redirectTo })
+  );
 
   return ok({ sent: true });
 }

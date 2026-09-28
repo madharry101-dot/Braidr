@@ -1,9 +1,10 @@
 // Hand-written to match supabase/migrations/*.sql exactly, in the same shape
 // `supabase gen types typescript` would produce.
 //
-// There's no live Supabase project yet to run that generator against — once
-// one exists, regenerate this file from it and delete this comment; the
-// generated file is the source of truth from then on, not this one.
+// A live Supabase project now exists, so this file COULD be generated. It has
+// not been, because regenerating would rewrite all ~850 lines and lose the
+// per-table notes. Keep hand-editing it in the generated shape, or regenerate
+// deliberately as its own change.
 
 import type { HairTexture, HairTypeValue } from "@/lib/hair/textures";
 import type { BlogCategory, BlogStatus } from "@/lib/blog/types";
@@ -690,6 +691,37 @@ export interface Database {
         }>;
         Relationships: [];
       };
+      stripe_webhook_events: {
+        // R-06 — dedup ledger for Stripe webhook deliveries. Written only by
+        // the service-role client, and in practice only through the
+        // claim/complete/release functions below. RLS is on with no policies,
+        // so no browser role can reach it by any path.
+        Row: {
+          event_id: string;
+          type: string;
+          status: "processing" | "processed";
+          locked_at: string;
+          processed_at: string | null;
+          attempts: number;
+          created_at: string;
+        };
+        Insert: {
+          event_id: string;
+          type: string;
+          status?: "processing" | "processed";
+          locked_at?: string;
+          processed_at?: string | null;
+          attempts?: number;
+          created_at?: string;
+        };
+        Update: {
+          status?: "processing" | "processed";
+          locked_at?: string;
+          processed_at?: string | null;
+          attempts?: number;
+        };
+        Relationships: [];
+      };
       csp_violation_reports: {
         // R-04 — Content-Security-Policy violation reports gathered while the
         // policy runs in Report-Only mode. Written only by the service-role
@@ -833,6 +865,24 @@ export interface Database {
       email_is_google_only: {
         Args: { p_email: string };
         Returns: boolean;
+      };
+      // R-06. claim returns one of:
+      //   'claimed' | 'reclaimed' | 'already_processed' | 'in_flight'
+      claim_stripe_webhook_event: {
+        Args: { p_event_id: string; p_type: string; p_lease_seconds?: number };
+        Returns: "claimed" | "reclaimed" | "already_processed" | "in_flight";
+      };
+      complete_stripe_webhook_event: {
+        Args: { p_event_id: string };
+        Returns: undefined;
+      };
+      release_stripe_webhook_event: {
+        Args: { p_event_id: string };
+        Returns: undefined;
+      };
+      purge_stripe_webhook_events: {
+        Args: { p_older_than_days?: number };
+        Returns: number;
       };
     };
     Enums: {

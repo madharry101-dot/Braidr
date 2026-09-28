@@ -8,6 +8,15 @@ import { fail, ok } from "@/lib/api/response";
 // POST /api/stripe/webhook — TRD 4.4 / 9.2. Signature-verified; runs
 // entirely on the service-role client since there's no user session on an
 // incoming webhook.
+//
+// Signature verification below is UNCHANGED and deliberately untouched.
+//
+// How long one delivery may hold an event before another may reclaim it.
+// Comfortably longer than any handler here, and shorter than Stripe's retry
+// backoff, so a genuinely dead attempt is picked up by the next delivery
+// rather than blocking the event forever.
+const LEASE_SECONDS = 60;
+
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -28,6 +37,77 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
+  // R-06 — claim this event before doing anything with it.
+  //
+  // Stripe retries any delivery that does not get a 2xx, and can deliver the
+  // same event more than once even after a success. Nothing used to record
+  // event.id, so a replay re-ran the handler and re-sent notification email.
+  //
+  // The claim is a LEASE, not a "seen" marker. An event is only recorded as
+  // processed once the handler has actually returned — see the migration
+  // comment for why insert-first dedup silently loses events.
+  const { data: claim, error: claimError } = await admin.rpc("claim_stripe_webhook_event", {
+    p_event_id: event.id,
+    p_type: event.type,
+    p_lease_seconds: LEASE_SECONDS,
+  });
+
+  if (claimError) {
+    // Could not even record the attempt. Do NOT process: without the ledger
+    // there is nothing stopping a retry from doing it all again.
+    console.error("[stripe webhook] could not claim event", event.id, claimError);
+    return fail("INTERNAL_ERROR", "Could not record event.", 500);
+  }
+
+  if (claim === "already_processed") {
+    return ok({ received: true, duplicate: true });
+  }
+
+  if (claim === "in_flight") {
+    // Another delivery holds the lease. Answering 200 here would tell Stripe
+    // the event is handled while the work may still fail, so this is
+    // deliberately non-2xx: Stripe backs off and tries again.
+    console.warn("[stripe webhook] event already in flight, asking Stripe to retry", event.id);
+    return fail("WEBHOOK_EVENT_IN_FLIGHT", "Event is already being processed.", 409);
+  }
+
+  try {
+    await dispatch(admin, event);
+  } catch (e) {
+    // Release the lease so the next retry can pick it up, then fail loudly.
+    // If this release itself fails the lease still ages out, which is the
+    // whole reason it is a lease.
+    console.error("[stripe webhook] handler threw for", event.type, event.id, e);
+    const { error: releaseError } = await admin.rpc("release_stripe_webhook_event", {
+      p_event_id: event.id,
+    });
+    if (releaseError) {
+      console.error("[stripe webhook] could not release lease for", event.id, releaseError);
+    }
+    return fail("INTERNAL_ERROR", "Handler failed.", 500);
+  }
+
+  const { error: completeError } = await admin.rpc("complete_stripe_webhook_event", {
+    p_event_id: event.id,
+  });
+  if (completeError) {
+    // The work is done but the ledger does not know. Returning 500 would make
+    // Stripe retry work that already happened; the lease will expire and a
+    // retry would redo it anyway, so say so loudly and acknowledge.
+    console.error(
+      "[stripe webhook] processed but could not mark complete",
+      event.id,
+      completeError
+    );
+  }
+
+  return ok({ received: true });
+}
+
+// Every branch here must THROW on failure rather than swallowing. A silent
+// return would be recorded as a successful delivery and Stripe would never
+// send the event again.
+async function dispatch(admin: ReturnType<typeof createAdminClient>, event: Stripe.Event) {
   switch (event.type) {
     case "checkout.session.completed":
       await handleCheckoutCompleted(admin, event.data.object as Stripe.Checkout.Session);
@@ -46,10 +126,12 @@ export async function POST(request: Request) {
       break;
     case "customer.subscription.created":
     case "customer.subscription.updated":
-      await handleSubscriptionChange(admin, event.data.object as Stripe.Subscription);
-      break;
     case "customer.subscription.deleted":
-      await handleSubscriptionChange(admin, event.data.object as Stripe.Subscription, true);
+      await handleSubscriptionChange(
+        admin,
+        event.data.object as Stripe.Subscription,
+        event.type === "customer.subscription.deleted"
+      );
       break;
     case "invoice.payment_failed":
       await handleInvoicePaymentFailed(admin, event.data.object as Stripe.Invoice);
@@ -57,8 +139,6 @@ export async function POST(request: Request) {
     default:
       break; // acknowledged, not acted on
   }
-
-  return ok({ received: true });
 }
 
 // checkout.session.completed covers three distinct payment-mode flows now,
@@ -139,7 +219,7 @@ async function handleBookingCheckoutCompleted(
   ]);
 
   const now = new Date();
-  await admin.from("income_records").insert({
+  const { error: incomeError } = await admin.from("income_records").insert({
     braider_id: booking.braider_id,
     booking_id: booking.id,
     service_name: service?.name ?? "Service",
@@ -149,6 +229,24 @@ async function handleBookingCheckoutCompleted(
     tax_year: ukTaxYearFor(now),
     payment_date: now.toISOString().slice(0, 10),
   });
+  if (incomeError) {
+    // R-06. UNIQUE(booking_id) is what actually stopped a replayed event
+    // double-counting a braider's taxable income — this insert simply used to
+    // ignore its own error, so it worked by accident. 23505 is the expected
+    // outcome of a replay and is fine. Anything else is a real failure and
+    // must throw, so the route releases the lease and Stripe retries; a
+    // swallowed error here would mean a confirmed booking with no income
+    // record and nothing anywhere saying so.
+    if (incomeError.code === "23505") {
+      console.info(
+        "[stripe webhook] income record already exists for booking",
+        booking.id,
+        "- replayed event, ignoring."
+      );
+    } else {
+      throw new Error(`income_records insert failed: ${incomeError.message}`);
+    }
+  }
 
   const [clientUser, braiderUser] = await Promise.all([
     admin.auth.admin.getUserById(booking.client_id),
@@ -230,14 +328,57 @@ async function handleTransferCreated(
   await admin.from("bookings").update({ stripe_transfer_id: transfer.id }).eq("id", bookingId);
 }
 
+// R-06 — read the CURRENT object from Stripe instead of trusting the event.
+//
+// Stripe does not guarantee delivery order. Applying the payload of whichever
+// event happens to arrive last can revert state: an older account.updated
+// landing after a newer one would put back a stale charges_enabled, and an
+// older subscription.updated landing after a cancellation would restore paid
+// access. Fetching sidesteps the ordering question entirely, because the
+// answer is whatever Stripe says right now.
+//
+// Returns null ONLY for a 404, which means the object is not there to read —
+// a wrong API mode or a bad id. That is terminal: retrying cannot fix it, so
+// it is logged at error level and acknowledged. Every other failure throws,
+// so the lease is released and the delivery is retried. It must never fall
+// back to the event payload; that would reintroduce exactly the staleness
+// this exists to remove.
+async function retrieveCurrent<T>(
+  fetchCurrent: () => Promise<T>,
+  label: string
+): Promise<T | null> {
+  try {
+    return await fetchCurrent();
+  } catch (e) {
+    const statusCode =
+      typeof e === "object" && e !== null && "statusCode" in e
+        ? (e as { statusCode?: number }).statusCode
+        : undefined;
+    if (statusCode === 404) {
+      console.error(
+        `[stripe webhook] ${label} does not exist at Stripe (404) - acknowledging without applying. Wrong API mode, or the id is not ours.`
+      );
+      return null;
+    }
+    throw e;
+  }
+}
+
 async function handleAccountUpdated(
   admin: ReturnType<typeof createAdminClient>,
   account: Stripe.Account
 ) {
-  await admin
+  const current = await retrieveCurrent(
+    () => stripe.accounts.retrieve(account.id),
+    `account ${account.id}`
+  );
+  if (!current) return;
+
+  const { error } = await admin
     .from("braider_profiles")
-    .update({ stripe_charges_enabled: account.charges_enabled ?? false })
-    .eq("stripe_account_id", account.id);
+    .update({ stripe_charges_enabled: current.charges_enabled ?? false })
+    .eq("stripe_account_id", current.id);
+  if (error) throw new Error(`braider_profiles charges_enabled update failed: ${error.message}`);
 }
 
 // TRD 9.2's dunning behaviour ("subscription enters grace period 3 days;
@@ -252,17 +393,34 @@ const STILL_SUBSCRIBED_STATUSES: Stripe.Subscription.Status[] = ["active", "tria
 async function handleSubscriptionChange(
   admin: ReturnType<typeof createAdminClient>,
   subscription: Stripe.Subscription,
-  forceInactive = false
+  isDeletion = false
 ) {
-  const subscribed = !forceInactive && STILL_SUBSCRIBED_STATUSES.includes(subscription.status);
-  const metadata = subscription.metadata;
+  // R-06 — see retrieveCurrent(). The event payload is a snapshot of when the
+  // event was created, which is not necessarily now.
+  const fresh = await retrieveCurrent(
+    () => stripe.subscriptions.retrieve(subscription.id),
+    `subscription ${subscription.id}`
+  );
+
+  // A deletion still has to be applied even if the object cannot be read:
+  // "this subscription is gone" is true regardless, and skipping it would
+  // leave someone subscribed forever. For any other event a 404 means we have
+  // nothing trustworthy to apply, and retrieveCurrent has already logged it.
+  if (!fresh && !isDeletion) return;
+  const current = fresh ?? subscription;
+
+  // `isDeletion` is belt and braces: a fetched deleted subscription comes back
+  // 'canceled', which is already not in STILL_SUBSCRIBED_STATUSES. It stays so
+  // that a deletion event can never, by any route, end in subscribed = true.
+  const subscribed = !isDeletion && STILL_SUBSCRIBED_STATUSES.includes(current.status);
+  const metadata = current.metadata;
 
   if (metadata.subscription_type === "braidcare_client" && metadata.user_id) {
     // Source of truth is braidcare_subscriptions (TRD v2.0 §3.3); the
     // profiles boolean is kept in sync for the reads that still use it.
-    const status = forceInactive
+    const status = isDeletion
       ? "cancelled"
-      : subscription.status === "past_due"
+      : current.status === "past_due"
         ? "past_due"
         : subscribed
           ? "active"
@@ -270,12 +428,12 @@ async function handleSubscriptionChange(
     // current_period_end moved to the subscription item in recent Stripe
     // API versions; fall back to +30 days if somehow absent.
     const periodEndUnix =
-      subscription.items.data[0]?.current_period_end ?? Math.floor(Date.now() / 1000) + 2_592_000;
+      current.items.data[0]?.current_period_end ?? Math.floor(Date.now() / 1000) + 2_592_000;
     await admin.from("braidcare_subscriptions").upsert(
       {
         user_id: metadata.user_id,
         role: "client",
-        stripe_subscription_id: subscription.id,
+        stripe_subscription_id: current.id,
         status,
         price_pence: 799,
         current_period_end: new Date(periodEndUnix * 1000).toISOString(),
@@ -299,7 +457,7 @@ async function handleSubscriptionChange(
       .from("braider_profiles")
       .update({
         braidr_pro_subscribed: subscribed,
-        stripe_pro_subscription_id: subscribed ? subscription.id : null,
+        stripe_pro_subscription_id: subscribed ? current.id : null,
       })
       .eq("id", metadata.braider_profile_id);
   }

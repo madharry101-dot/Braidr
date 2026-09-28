@@ -6,6 +6,7 @@ import { runPurgeBraidcarePhotos } from "@/lib/cron/purge-braidcare-photos";
 import { runAccountDeletion } from "@/lib/cron/account-deletion";
 import { runExpireStaleBookings } from "@/lib/cron/expire-stale-bookings";
 import { sendQueuedNewsletters } from "@/lib/cron/send-newsletter";
+import { runPurgeStripeWebhookEvents } from "@/lib/cron/purge-stripe-webhook-events";
 import { ok } from "@/lib/api/response";
 import { rejectUnauthorisedCron } from "@/lib/cron/auth";
 
@@ -36,6 +37,9 @@ export async function GET(request: Request) {
     // Also has its own 15-minute cron; included here as a safety net so a
     // queued send is never stranded if that one stops firing.
     newsletter: () => sendQueuedNewsletters(),
+    // R-06 dedup ledger housekeeping — finished rows older than the retention
+    // window. Nothing else removes them.
+    purge_stripe_webhook_events: () => runPurgeStripeWebhookEvents(admin),
   })) {
     try {
       results[name] = await task();

@@ -31,6 +31,10 @@ export const ERROR_CODES = [
   // Stripe / payments
   "PAYMENT_FAILED",
   "WEBHOOK_SIGNATURE_INVALID",
+  // R-06: this exact event is being processed by another delivery right now.
+  // Answered non-2xx on purpose so Stripe retries instead of considering it
+  // delivered — see app/api/stripe/webhook/route.ts.
+  "WEBHOOK_EVENT_IN_FLIGHT",
 
   // BraidMatch
   "STYLE_NOT_IDENTIFIED",

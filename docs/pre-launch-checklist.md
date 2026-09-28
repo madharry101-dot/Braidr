@@ -12,17 +12,22 @@ off — they are compensating controls for accepted risks, not nice-to-haves.
 ## Email delivery
 
 - [ ] **BLOCKER — move off Supabase's built-in SMTP.**
-      Confirmed live on 2026-09-28: auth email is sent from
+      Confirmed live on 2026-09-28: auth email sends from
       `noreply@mail.app.supabase.io`, i.e. Supabase's built-in service. That
       service is explicitly not intended for production and allows only a
       handful of messages per hour.
-      **Observed symptom:** a real registration against production returned
-      **502 after 11.2s** — Netlify's function timeout — because signup blocks
-      on the confirmation email. No user was created and no error reached the
-      caller. A retry minutes later returned `over_email_send_rate_limit`.
-      A launch-day signup queue would fail this way for almost everyone.
-      Fix: configure custom SMTP (Resend) on the Supabase Auth project, which
-      needs the verified sending domain below.
+      **This is a capacity blocker, not a current outage.** Registration with
+      confirmation demonstrably works: four accounts signed up and clicked
+      through on 2026-08-26, 08-28 (x2) and 09-04, and in each case
+      `confirmation_sent_at` is only 50-120ms after `created_at` — the handoff
+      is fast when there is quota. What fails is any _burst_. Once the hourly
+      quota is gone, signup blocks on the send and Netlify kills the function
+      at ~10s: a real registration returned **502 after 11.2s**, with no user
+      created and no signup request ever reaching Supabase's logs. A retry
+      minutes later returned `over_email_send_rate_limit`.
+      Four signups in six weeks stayed under the limit. Launch volume will not.
+      Fix: custom SMTP (Resend) on the Supabase Auth project, which needs the
+      verified sending domain below.
 
 - [ ] **BLOCKER — buy and verify a sending domain in Resend.**
       `lib/email/send.ts` still falls back to `Braidr <notifications@braidr.app>`,
@@ -31,10 +36,15 @@ off — they are compensating controls for accepted risks, not nice-to-haves.
       newsletter, the R-08 Google sign-in notice) depends on a sender that
       cannot deliver.
 
-- [ ] **Registration should not block on the email send.** Even with good SMTP,
-      signup currently fails closed with a 502 if delivery is slow, and the
-      caller sees nothing useful. Worth making the send asynchronous the way
-      `/api/auth/reset-password` already does with `after()`.
+- [ ] **Registration should not block on the email send, and needs its own
+      timeout.** Even with good SMTP, signup currently fails closed with a 502
+      if delivery is slow and the caller sees nothing useful — no error, no
+      account, nothing to retry against. Two changes:
+      (a) a **route-level timeout** on `POST /api/auth/register` that is
+      comfortably under Netlify's function limit, so a slow upstream returns a
+      real error envelope instead of a platform 502;
+      (b) make the send asynchronous the way `/api/auth/reset-password`
+      already does with `after()`.
 
 ## Auth and security
 
@@ -65,6 +75,53 @@ off — they are compensating controls for accepted risks, not nice-to-haves.
 
 - [ ] Remaining open audit findings closed or accepted: R-09 (rate-limit gaps),
       R-10, R-11, R-12. See the security audit notes.
+
+## Moving to the production domain
+
+Doing this changes several things that are currently pinned to
+`braidr.netlify.app`. Each one silently breaks a flow if it is missed.
+
+- [ ] **Stripe webhook endpoint and signing secret.** A new endpoint on the new
+      domain issues a **new** `STRIPE_WEBHOOK_SECRET`. The old secret keeps
+      verifying the old endpoint, so the symptom is webhooks that appear fine
+      in Stripe and never arrive — bookings stuck `pending`, payouts never
+      released. Update the Netlify env var in the same change, and keep both
+      endpoints live until traffic has moved.
+- [ ] **`NEXT_PUBLIC_SITE_URL`.** Used to build the password-reset
+      `redirectTo`, the Google sign-in notice link, and newsletter links. A
+      stale value sends real users to the old host.
+- [ ] **Supabase Auth redirect URLs.** Site URL plus the allow-list. A URL that
+      is not listed is rejected, so confirmation and reset links stop working.
+- [ ] **Google OAuth redirect URIs** in the Google Cloud console, and the
+      matching callback in Supabase. Missing entries fail at the consent screen
+      with `redirect_uri_mismatch`.
+- [ ] **HSTS preload review.** `next.config.mjs` deliberately omits `preload`;
+      Netlify currently injects its own HSTS _with_ preload regardless, so this
+      is not ours to control on a `netlify.app` subdomain. On Braidr's own
+      domain it becomes a real, near-irreversible decision that binds every
+      future subdomain to HTTPS. Decide it on purpose.
+
+## Payments
+
+- [ ] **R-13 — subscription event ordering residual. MUST CLOSE BEFORE THE
+      FIRST PAYING SUBSCRIBER.**
+      R-06 makes `customer.subscription.*` and `account.updated` fetch the
+      current object from Stripe rather than trusting the event payload, so a
+      stale event can no longer carry stale data. That removes most of the
+      risk but **not all of it**: the webhook dedup lease is per `event_id`,
+      not per subscription. Two _different_ events for the same subscription
+      can still be processed concurrently, both fetch, and the one whose fetch
+      returned older data can win the write.
+      **Worst case: a cancellation is overwritten by a slightly older update
+      and a cancelled subscriber keeps paid access** — or the reverse, a paying
+      subscriber loses it.
+      The window is small (both fetches must straddle a state change) and
+      today the exposure is zero because there are no paying subscribers. It
+      stops being zero the moment there is one.
+      Closing it needs one of: serialising per subscription id (advisory lock
+      keyed on the subscription), or a `last_applied_event_created` watermark
+      column checked on write. Deliberately deferred from R-06 — fetch-only
+      was the agreed scope.
 
 ## Legal and content
 

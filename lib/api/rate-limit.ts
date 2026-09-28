@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
@@ -7,6 +8,13 @@ import { Redis } from "@upstash/redis";
 // Handlers, whereas Vercel KV is Edge-only).
 const WINDOWS = {
   auth: { limit: 10, window: "15 m" },
+  // Per-EMAIL companion to `auth`, which is per-IP. The IP limiter does not
+  // stop mailbox-bombing: a caller with a pool of addresses can point all of
+  // them at one victim's inbox and stay under every per-IP bucket. Keyed by a
+  // hash of the address (see identifierForEmail) so raw addresses are not
+  // sitting in Redis keys. Deliberately low — a real person asking for a
+  // reset link does it once or twice, not five times an hour.
+  authEmail: { limit: 5, window: "1 h" },
   braidcareAnalyse: { limit: 5, window: "1 h" },
   fileUpload: { limit: 20, window: "1 h" },
   styleMatch: { limit: 10, window: "1 h" },
@@ -103,6 +111,18 @@ export function clientIp(request: { headers: Headers }): string {
   const real = h.get("x-real-ip");
   if (real) return real.trim();
   return "unknown";
+}
+
+/**
+ * Rate-limit identifier for an email address.
+ *
+ * Hashed rather than raw: rate-limit keys live in Upstash with a different
+ * retention and access story from the database, and an address is personal
+ * data whether or not it belongs to a registered user. The hash only has to
+ * be stable and collision-resistant, not reversible.
+ */
+export function identifierForEmail(email: string): string {
+  return createHash("sha256").update(email.trim().toLowerCase(), "utf8").digest("hex").slice(0, 32);
 }
 
 export async function checkRateLimit(group: RateLimitGroup, identifier: string) {

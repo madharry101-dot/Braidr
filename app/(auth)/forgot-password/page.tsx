@@ -7,7 +7,11 @@ import { BrButton } from "@/components/braidr-ui/button";
 import { Alert } from "@/components/ui/alert";
 import { api, ApiError } from "@/lib/api/client";
 
-type Result = { sent: boolean; google_only: boolean };
+// R-08: the API no longer reports whether an address is a Google-only
+// account — that answer was an account-existence oracle for anyone who could
+// POST this form. A Google-only user is told by email instead. Every address,
+// registered or not, now gets the same { sent: true } and the same screen.
+type Result = { sent: boolean };
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -27,23 +31,6 @@ export default function ForgotPasswordPage() {
     } finally {
       setPending(false);
     }
-  }
-
-  // FR-AUTH-02.6 — Google-only account: a reset link is no use to them.
-  if (result?.google_only) {
-    return (
-      <div>
-        <h1 className="br-display text-2xl">Use Google to sign in</h1>
-        <p className="br-muted mt-3 text-sm">
-          The account for <span className="font-medium">{email}</span> was created with Google and
-          doesn&rsquo;t have a password. Go back and choose{" "}
-          <span className="font-medium">Continue with Google</span>.
-        </p>
-        <Link href="/login" className="br-link mt-6 inline-block font-medium underline">
-          Back to sign in
-        </Link>
-      </div>
-    );
   }
 
   if (result?.sent) {

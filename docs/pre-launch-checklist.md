@@ -9,6 +9,15 @@ off — they are compensating controls for accepted risks, not nice-to-haves.
 
 ---
 
+## Security audit status
+
+**R-01 to R-12 are all closed, fixed and live** as of 2026-09-29. There was
+never an R-05 — the original numbering skipped it.
+
+**R-13 is the only open finding**, and it is gated below under Payments.
+
+---
+
 ## Email delivery
 
 - [ ] **BLOCKER — move off Supabase's built-in SMTP.**
@@ -118,10 +127,20 @@ Doing this changes several things that are currently pinned to
       The window is small (both fetches must straddle a state change) and
       today the exposure is zero because there are no paying subscribers. It
       stops being zero the moment there is one.
-      Closing it needs one of: serialising per subscription id (advisory lock
-      keyed on the subscription), or a `last_applied_event_created` watermark
-      column checked on write. Deliberately deferred from R-06 — fetch-only
-      was the agreed scope.
+      **Recommended fix: the watermark, not the advisory lock.** A lock would
+      have to span the Stripe fetch AND the write for the second writer to
+      read fresh state — but that fetch is an outbound HTTP call, and
+      PostgREST is stateless: there is no session to hold a session-level
+      advisory lock across, and a transaction-scoped one cannot contain an
+      HTTP call. Making it work would mean hand-rolling a lease with its own
+      expiry, i.e. rebuilding R-06's ledger for a second purpose.
+      The watermark is a single atomic compare-and-set: store the applied
+      `event.created` per Stripe object and make the state write conditional
+      on it, inside one Postgres function so the guard and the write commit
+      together. Same optimistic-concurrency shape as `if_version`.
+      It COMPOSES with the fetch-current behaviour already shipped in R-06 —
+      the fetch supplies freshness, the watermark supplies ordering — so keep
+      both. Deliberately deferred from R-06; fetch-only was the agreed scope.
 
 ## Post-launch
 

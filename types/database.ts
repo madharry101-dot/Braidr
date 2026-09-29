@@ -722,6 +722,27 @@ export interface Database {
         };
         Relationships: [];
       };
+      cron_alert_state: {
+        // R-04 follow-up. Watermark per alert stream: when that alert last
+        // actually sent. It is both the point new rows are counted from and
+        // the throttle, which is what makes a noisy day send one email.
+        // Service-role only; RLS on with no policies. See 20260929000003.
+        Row: {
+          alert_key: string;
+          last_alerted_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          alert_key: string;
+          last_alerted_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          last_alerted_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       csp_violation_reports: {
         // R-04 — Content-Security-Policy violation reports gathered while the
         // policy runs in Report-Only mode. Written only by the service-role

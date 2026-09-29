@@ -7,6 +7,7 @@ import { runAccountDeletion } from "@/lib/cron/account-deletion";
 import { runExpireStaleBookings } from "@/lib/cron/expire-stale-bookings";
 import { sendQueuedNewsletters } from "@/lib/cron/send-newsletter";
 import { runPurgeStripeWebhookEvents } from "@/lib/cron/purge-stripe-webhook-events";
+import { runCspViolationAlert } from "@/lib/cron/csp-violation-alert";
 import { ok } from "@/lib/api/response";
 import { rejectUnauthorisedCron } from "@/lib/cron/auth";
 
@@ -40,6 +41,9 @@ export async function GET(request: Request) {
     // R-06 dedup ledger housekeeping — finished rows older than the retention
     // window. Nothing else removes them.
     purge_stripe_webhook_events: () => runPurgeStripeWebhookEvents(admin),
+    // R-04 follow-up — the CSP has been enforcing and collecting violation
+    // reports that nobody reads. One email per noisy day, not per report.
+    csp_violation_alert: () => runCspViolationAlert(admin),
   })) {
     try {
       results[name] = await task();

@@ -6,6 +6,7 @@ import { ok, fail } from "@/lib/api/response";
 import { computeBookingPricing } from "@/lib/bookings/pricing";
 import { hasOverlappingBooking } from "@/lib/bookings/availability";
 import { stripe } from "@/lib/stripe/client";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 
 // POST /api/bookings — TRD 4.4. Creates a Stripe Checkout Session (separate
 // charges and transfers — see the payment-model decision) and a 'pending'
@@ -16,6 +17,13 @@ export async function POST(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return fail("UNAUTHENTICATED", "Not signed in.", 401);
+
+  // R-09 — every call here creates a real Stripe Checkout Session and holds a
+  // slot. Keyed per user, and fails open on an Upstash outage: the account is
+  // the real gate, and blocking paying customers from booking is worse than a
+  // burst of sessions.
+  const limited = rateLimitResponse(await checkRateLimit("bookings", user.id));
+  if (limited) return limited;
 
   const parsed = validate(createBookingSchema, await request.json());
   if (!parsed.ok) return parsed.response;

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { validate } from "@/lib/api/validate";
 import { resolveDisputeSchema } from "@/lib/validations/admin";
 import { isAdmin } from "@/lib/auth/require-admin";
+import { checkRateLimit, rateLimitResponse } from "@/lib/api/rate-limit";
 import { stripe } from "@/lib/stripe/client";
 import { ok, fail } from "@/lib/api/response";
 import type { BookingStatus } from "@/types/database";
@@ -21,6 +22,13 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
   } = await supabase.auth.getUser();
   if (!user) return fail("UNAUTHENTICATED", "Not signed in.", 401);
   if (!(await isAdmin(supabase, user.id))) return fail("FORBIDDEN", "Admin only.", 403);
+
+  // R-09 — the `admin` limiter group existed in config but was never called,
+  // so reading it suggested these routes were capped at 100/min when nothing
+  // enforced it. Wired now. Fails open: these are already role-gated, so this
+  // is defence in depth, not the control.
+  const limited = rateLimitResponse(await checkRateLimit("admin", user.id));
+  if (limited) return limited;
 
   const parsed = validate(resolveDisputeSchema, await request.json());
   if (!parsed.ok) return parsed.response;

@@ -166,3 +166,8 @@ describe("deliverPasswordReset", () => {
     });
   });
 });
+
+// This file declares top-level helpers and has no top-level import, which
+// would otherwise make it a global script and collide with the identically
+// named helper in a sibling test file. `export {}` makes it a module.
+export {};

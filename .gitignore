@@ -29,7 +29,14 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
+#
+# R-10: this used to be `.env*.local` ONLY, so a bare `.env` — the single most
+# likely place for a real key to sit — was NOT ignored and one `git add .`
+# away from a PUBLIC repo. Cover every .env form and re-admit the committed
+# template explicitly.
+.env
+.env.*
+!.env.example
 
 # netlify
 .netlify

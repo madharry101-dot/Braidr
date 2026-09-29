@@ -200,16 +200,48 @@ export type RateLimitResult = {
   degraded: boolean;
 };
 
+// An outage is a burst, not a single event: every request in flight hits the
+// same failure, so logging each one buries the signal in its own noise and
+// makes the log expensive exactly when things are going wrong. One line per
+// group per minute is enough to see that it started, and that it is ongoing.
+//
+// Throttled per GROUP rather than globally, so an outage affecting `auth`
+// cannot hide one affecting `authEmail`. The suppressed count is reported on
+// the next line through, so the volume is never silently lost.
+const LOG_THROTTLE_MS = 60_000;
+const lastLoggedAt = new Map<RateLimitGroup, { at: number; suppressed: number }>();
+
+function logOutageThrottled(group: RateLimitGroup, message: string): void {
+  const now = Date.now();
+  const previous = lastLoggedAt.get(group);
+
+  if (previous && now - previous.at < LOG_THROTTLE_MS) {
+    previous.suppressed += 1;
+    return;
+  }
+
+  const suppressed = previous?.suppressed ?? 0;
+  lastLoggedAt.set(group, { at: now, suppressed: 0 });
+  console.error(
+    suppressed > 0
+      ? `${message} (${suppressed} similar in the last ${LOG_THROTTLE_MS / 1000}s not logged)`
+      : message
+  );
+}
+
 function handleOutage(group: RateLimitGroup, identifier: string, reason: string): RateLimitResult {
   if (WINDOWS[group].onOutage === "open") {
-    console.error(
-      `[rate-limit] "${group}" unavailable (${reason}) — policy is fail-open, request ALLOWED unchecked.`
+    logOutageThrottled(
+      group,
+      `[rate-limit] "${group}" unavailable (${reason}) — policy is fail-open, requests ALLOWED unchecked.`
     );
     return { success: true, degraded: true };
   }
+
   const allowed = fallbackAllows(group, identifier);
-  console.error(
-    `[rate-limit] "${group}" unavailable (${reason}) — falling back to the per-instance counter, request ${allowed ? "allowed" : "DENIED"}.`
+  logOutageThrottled(
+    group,
+    `[rate-limit] "${group}" unavailable (${reason}) — FAILING CLOSED onto the per-instance counter. This is a degraded security control: the cap is per instance, so the effective allowance is roughly N times the configured limit across N instances.`
   );
   return { success: allowed, degraded: true };
 }

@@ -205,6 +205,50 @@ describe("rate limiting during an Upstash outage (R-09)", () => {
     });
   });
 
+  // An outage is a burst: every in-flight request hits the same failure. One
+  // line per request buries the signal in its own noise and makes logging
+  // expensive exactly when things are going wrong.
+  describe("outage logging is throttled", () => {
+    it("logs once for a burst, not once per request", async () => {
+      mockLimit.mockRejectedValue(new Error("down"));
+      const { checkRateLimit } = await load();
+
+      for (let i = 0; i < 50; i++) await checkRateLimit("auth", `ip-${i}`);
+
+      expect(consoleError).toHaveBeenCalledTimes(1);
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("FAILING CLOSED"));
+    });
+
+    it("logs again after the throttle window, and reports what it suppressed", async () => {
+      mockLimit.mockRejectedValue(new Error("down"));
+      const { checkRateLimit } = await load();
+
+      const start = Date.now();
+      const clock = jest.spyOn(Date, "now").mockReturnValue(start);
+      for (let i = 0; i < 10; i++) await checkRateLimit("auth", `ip-${i}`);
+      expect(consoleError).toHaveBeenCalledTimes(1);
+
+      clock.mockReturnValue(start + 60_001);
+      await checkRateLimit("auth", "later");
+
+      expect(consoleError).toHaveBeenCalledTimes(2);
+      // The volume is never silently lost.
+      expect(consoleError).toHaveBeenLastCalledWith(expect.stringContaining("9 similar"));
+      clock.mockRestore();
+    });
+
+    it("throttles per group, so one outage cannot hide another", async () => {
+      mockLimit.mockRejectedValue(new Error("down"));
+      const { checkRateLimit } = await load();
+
+      await checkRateLimit("auth", "x");
+      await checkRateLimit("authEmail", "y");
+      await checkRateLimit("fileUpload", "z");
+
+      expect(consoleError).toHaveBeenCalledTimes(3);
+    });
+  });
+
   it("says loudly that it is degraded, on every outage path", async () => {
     mockLimit.mockRejectedValue(new Error("ECONNREFUSED"));
     const { checkRateLimit } = await load();

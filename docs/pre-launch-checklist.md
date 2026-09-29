@@ -123,6 +123,18 @@ Doing this changes several things that are currently pinned to
       column checked on write. Deliberately deferred from R-06 — fetch-only
       was the agreed scope.
 
+## Post-launch
+
+Not blocking launch, but decided and written down rather than forgotten.
+
+- [ ] **Rate-limit `GET /api/braiders` (braider search).**
+      Left unlimited deliberately (R-09, 2026-09-29). It requires a signed-in
+      user, so this is authenticated-user scraping of the braider directory
+      rather than an anonymous vector — the original finding implied
+      otherwise. Worth a limiter once there are enough braiders that the
+      directory is itself worth scraping. It would want its own group with
+      `onOutage: "open"`, since browsing must not break when Upstash does.
+
 ## Legal and content
 
 - [ ] Solicitor review of the Terms and Privacy drafts.

@@ -52,11 +52,78 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-/** Safe-scheme check — blocks javascript:, data:, vbscript: and friends. */
+// R-11 — the origin a Markdown link is allowed to point at.
+//
+// `.invalid` is reserved by RFC 2606 and can never resolve, so this is only
+// ever a yardstick for "did a relative URL stay relative", never a place a
+// browser could be sent.
+const RELATIVE_BASE = "https://braidr.invalid";
+
+/**
+ * Decides what a Markdown link or image may point at, and returns the URL to
+ * emit — or null to refuse it.
+ *
+ * WHAT WAS WRONG (R-11). The old check was a prefix test:
+ *
+ *     /^(https?:\/\/|\/|#|mailto:)/i
+ *
+ * `//evil.com` starts with `/`, so it passed — and a protocol-relative URL is
+ * an EXTERNAL navigation, not a path. `/\evil.com` passed too: browsers
+ * normalise the backslash to a slash for http(s), making it `//evil.com`
+ * again. A blog post could therefore link off-site while looking local.
+ *
+ * WHY THIS IS NOT A LONGER BLOCKLIST. Blocklisting each hostile spelling
+ * loses by default — it only ever covers the variants someone thought of.
+ * This PARSES instead, with the URL parser the browser itself uses, and asks
+ * two positive questions: is the scheme one we allow, and (for anything that
+ * looked relative) did it actually stay on our own origin? `//evil.com` and
+ * `/\evil.com` both resolve to a different origin, so both are refused for
+ * the same structural reason rather than by being individually named.
+ */
 function safeUrl(url: string): string | null {
   const trimmed = url.trim();
-  if (/^(https?:\/\/|\/|#|mailto:)/i.test(trimmed)) return trimmed;
-  return null;
+  if (!trimmed) return null;
+
+  // Browsers STRIP tab, newline and carriage return out of a URL before
+  // parsing it, so `java&#9;script:alert(1)` becomes `javascript:alert(1)`
+  // after the parser has finished with it. Refuse anything carrying a control
+  // character rather than trying to sanitise it — there is no legitimate
+  // reason for one inside a Markdown link.
+  if (/[\u0000-\u001F\u007F]/.test(trimmed)) return null;
+
+  // A pure fragment stays on whatever page is rendering it.
+  if (trimmed.startsWith("#")) return trimmed;
+
+  // mailto: needs an actual address; a bare `mailto:` is not useful and a
+  // `mailto:` with whitespace in it is suspicious.
+  if (/^mailto:[^\s]+@[^\s]+$/i.test(trimmed)) return trimmed;
+
+  const isAbsolute = /^[a-z][a-z0-9+.-]*:/i.test(trimmed);
+
+  // Anything not absolute must be a rooted path. This is what stops
+  // `evil.com` being read as a relative path and then resolved oddly.
+  if (!isAbsolute && !trimmed.startsWith("/")) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed, RELATIVE_BASE);
+  } catch {
+    return null;
+  }
+
+  // Allowlist of schemes, checked AFTER parsing so `javascript:`, `data:`,
+  // `vbscript:` and every future scheme are refused by omission.
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+
+  if (!isAbsolute) {
+    // It looked relative. If resolving it moved us off our own origin, it was
+    // never relative — that is the `//evil.com` and `/\evil.com` case.
+    if (parsed.origin !== RELATIVE_BASE) return null;
+    // Emit the normalised path only, never the placeholder origin.
+    return parsed.pathname + parsed.search + parsed.hash;
+  }
+
+  return parsed.toString();
 }
 
 /** Inline constructs, applied to already-escaped text. */

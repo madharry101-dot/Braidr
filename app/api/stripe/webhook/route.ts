@@ -122,7 +122,7 @@ async function dispatch(admin: ReturnType<typeof createAdminClient>, event: Stri
       await handleTransferCreated(admin, event.data.object as Stripe.Transfer);
       break;
     case "account.updated":
-      await handleAccountUpdated(admin, event.data.object as Stripe.Account);
+      await handleAccountUpdated(admin, event.data.object as Stripe.Account, event);
       break;
     case "customer.subscription.created":
     case "customer.subscription.updated":
@@ -130,7 +130,8 @@ async function dispatch(admin: ReturnType<typeof createAdminClient>, event: Stri
       await handleSubscriptionChange(
         admin,
         event.data.object as Stripe.Subscription,
-        event.type === "customer.subscription.deleted"
+        event.type === "customer.subscription.deleted",
+        event
       );
       break;
     case "invoice.payment_failed":
@@ -343,6 +344,20 @@ async function handleTransferCreated(
 // so the lease is released and the delivery is retried. It must never fall
 // back to the event payload; that would reintroduce exactly the staleness
 // this exists to remove.
+// Stripe always sets `created` (Unix seconds). If one ever arrives without
+// it, `new Date(NaN).toISOString()` throws a bare RangeError that says
+// nothing. Guessing a timestamp instead would be worse: a fabricated "now"
+// would look like the NEWEST event and could overwrite good state through the
+// R-13 watermark. So fail, loudly and legibly — the ledger's attempts counter
+// makes a repeatedly-failing event visible.
+function eventCreatedIso(event: Stripe.Event): string {
+  const seconds = event.created;
+  if (typeof seconds !== "number" || !Number.isFinite(seconds)) {
+    throw new Error(`event ${event.id} (${event.type}) has no usable \`created\` timestamp`);
+  }
+  return new Date(seconds * 1000).toISOString();
+}
+
 async function retrieveCurrent<T>(
   fetchCurrent: () => Promise<T>,
   label: string
@@ -366,7 +381,8 @@ async function retrieveCurrent<T>(
 
 async function handleAccountUpdated(
   admin: ReturnType<typeof createAdminClient>,
-  account: Stripe.Account
+  account: Stripe.Account,
+  event: Stripe.Event
 ) {
   const current = await retrieveCurrent(
     () => stripe.accounts.retrieve(account.id),
@@ -374,11 +390,20 @@ async function handleAccountUpdated(
   );
   if (!current) return;
 
-  const { error } = await admin
-    .from("braider_profiles")
-    .update({ stripe_charges_enabled: current.charges_enabled ?? false })
-    .eq("stripe_account_id", current.id);
-  if (error) throw new Error(`braider_profiles charges_enabled update failed: ${error.message}`);
+  // R-13 — same guard as subscriptions. Stripe does not order account.updated
+  // either, and an older one landing late would revert charges_enabled.
+  const { data: outcome, error } = await admin.rpc("apply_stripe_account_state", {
+    p_account_id: current.id,
+    p_event_id: event.id,
+    p_event_created: eventCreatedIso(event),
+    p_charges_enabled: current.charges_enabled ?? false,
+  });
+  if (error) throw new Error(`apply_stripe_account_state failed: ${error.message}`);
+  if (outcome !== "applied") {
+    console.info(
+      `[stripe webhook] ${event.type} ${event.id} for ${current.id} not applied: ${outcome}`
+    );
+  }
 }
 
 // TRD 9.2's dunning behaviour ("subscription enters grace period 3 days;
@@ -393,7 +418,8 @@ const STILL_SUBSCRIBED_STATUSES: Stripe.Subscription.Status[] = ["active", "tria
 async function handleSubscriptionChange(
   admin: ReturnType<typeof createAdminClient>,
   subscription: Stripe.Subscription,
-  isDeletion = false
+  isDeletion: boolean,
+  event: Stripe.Event
 ) {
   // R-06 — see retrieveCurrent(). The event payload is a snapshot of when the
   // event was created, which is not necessarily now.
@@ -415,6 +441,22 @@ async function handleSubscriptionChange(
   const subscribed = !isDeletion && STILL_SUBSCRIBED_STATUSES.includes(current.status);
   const metadata = current.metadata;
 
+  // R-13 — which rows to write, decided here; WHETHER to write them, decided
+  // in the database. Fetching current state (R-06) stopped us applying stale
+  // DATA, but two different events for one subscription can still be in
+  // flight together, and the one whose fetch was older could write last. The
+  // guard and the write have to happen under one row lock, which means they
+  // have to happen in one statement, which means the write lives in
+  // apply_stripe_subscription_state. See 20260929000004.
+  let target: {
+    p_stream: string;
+    p_user_id?: string;
+    p_braider_profile_id?: string;
+    p_status?: string;
+    p_current_period_end?: string;
+    p_price_pence?: number;
+  } | null = null;
+
   if (metadata.subscription_type === "braidcare_client" && metadata.user_id) {
     // Source of truth is braidcare_subscriptions (TRD v2.0 §3.3); the
     // profiles boolean is kept in sync for the reads that still use it.
@@ -429,37 +471,48 @@ async function handleSubscriptionChange(
     // API versions; fall back to +30 days if somehow absent.
     const periodEndUnix =
       current.items.data[0]?.current_period_end ?? Math.floor(Date.now() / 1000) + 2_592_000;
-    await admin.from("braidcare_subscriptions").upsert(
-      {
-        user_id: metadata.user_id,
-        role: "client",
-        stripe_subscription_id: current.id,
-        status,
-        price_pence: 799,
-        current_period_end: new Date(periodEndUnix * 1000).toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
-    await admin
-      .from("profiles")
-      .update({ braidcare_client_subscribed: subscribed })
-      .eq("id", metadata.user_id);
+    target = {
+      p_stream: "braidcare_client",
+      p_user_id: metadata.user_id,
+      p_status: status,
+      p_current_period_end: new Date(periodEndUnix * 1000).toISOString(),
+      p_price_pence: 799,
+    };
   } else if (metadata.subscription_type === "braidcare_braider" && metadata.braider_profile_id) {
-    await admin
-      .from("braider_profiles")
-      .update({ braidcare_subscribed: subscribed, braidcare_badge_active: subscribed })
-      .eq("id", metadata.braider_profile_id);
+    target = {
+      p_stream: "braidcare_braider",
+      p_braider_profile_id: metadata.braider_profile_id,
+    };
   } else if (metadata.subscription_type === "pro" && metadata.braider_profile_id) {
     // stripe_pro_subscription_id is stored (not just the boolean) because
     // DELETE /api/pro/subscribe needs it to call stripe.subscriptions.update
     // — see that route and the migration note on why this column exists.
-    await admin
-      .from("braider_profiles")
-      .update({
-        braidr_pro_subscribed: subscribed,
-        stripe_pro_subscription_id: subscribed ? current.id : null,
-      })
-      .eq("id", metadata.braider_profile_id);
+    target = { p_stream: "pro", p_braider_profile_id: metadata.braider_profile_id };
+  }
+
+  if (!target) return; // a subscription we do not track — nothing to apply
+
+  const { data: outcome, error } = await admin.rpc("apply_stripe_subscription_state", {
+    p_subscription_id: current.id,
+    p_event_id: event.id,
+    p_event_created: eventCreatedIso(event),
+    p_is_cancellation: isDeletion,
+    p_subscribed: subscribed,
+    p_user_id: null,
+    p_braider_profile_id: null,
+    p_status: null,
+    p_current_period_end: null,
+    p_price_pence: null,
+    ...target,
+  });
+  if (error) throw new Error(`apply_stripe_subscription_state failed: ${error.message}`);
+
+  // 'stale' and 'cancelled' are correct outcomes, not errors — but they mean
+  // an event was deliberately not applied, so say which and why.
+  if (outcome !== "applied") {
+    console.info(
+      `[stripe webhook] ${event.type} ${event.id} for ${current.id} not applied: ${outcome}`
+    );
   }
 }
 

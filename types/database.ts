@@ -722,6 +722,23 @@ export interface Database {
         };
         Relationships: [];
       };
+      stripe_object_state: {
+        // R-13: per-Stripe-object watermark and terminal-cancellation flag.
+        // Never written directly — go through apply_stripe_subscription_state
+        // / apply_stripe_account_state, which hold a row lock across the guard
+        // and the write. RLS on, no policies. See 20260929000004.
+        Row: {
+          object_id: string;
+          object_type: "subscription" | "account";
+          last_applied_event_created: string;
+          last_applied_event_id: string;
+          cancelled_at: string | null;
+          updated_at: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       cron_alert_state: {
         // R-04 follow-up. Watermark per alert stream: when that alert last
         // actually sent. It is both the point new rows are counted from and
@@ -918,6 +935,34 @@ export interface Database {
       purge_stripe_webhook_events: {
         Args: { p_older_than_days?: number };
         Returns: number;
+      };
+      // R-13. Both return 'applied' | 'stale' | 'cancelled'. 'stale' and
+      // 'cancelled' are correct outcomes, not errors: the event was
+      // deliberately not applied.
+      apply_stripe_subscription_state: {
+        Args: {
+          p_subscription_id: string;
+          p_event_id: string;
+          p_event_created: string;
+          p_is_cancellation: boolean;
+          p_stream: string;
+          p_subscribed: boolean;
+          p_user_id?: string | null;
+          p_braider_profile_id?: string | null;
+          p_status?: string | null;
+          p_current_period_end?: string | null;
+          p_price_pence?: number | null;
+        };
+        Returns: "applied" | "stale" | "cancelled";
+      };
+      apply_stripe_account_state: {
+        Args: {
+          p_account_id: string;
+          p_event_id: string;
+          p_event_created: string;
+          p_charges_enabled: boolean;
+        };
+        Returns: "applied" | "stale" | "cancelled";
       };
     };
     Enums: {

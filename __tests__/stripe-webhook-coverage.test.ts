@@ -137,7 +137,7 @@ describe("every Stripe event Braidr must handle reaches a handler", () => {
       from,
       rpc: jest.fn((name: string) =>
         Promise.resolve({
-          data: name === "claim_stripe_webhook_event" ? "claimed" : null,
+          data: name === "claim_stripe_webhook_event" ? "claimed" : "applied",
           error: null,
         })
       ),
@@ -150,7 +150,13 @@ describe("every Stripe event Braidr must handle reaches a handler", () => {
   afterEach(() => spies.forEach((s) => s.mockRestore()));
 
   function post(type: string, object: Record<string, unknown>) {
-    mockConstructEvent.mockReturnValue({ id: `evt_${type}`, type, data: { object } });
+    mockConstructEvent.mockReturnValue({
+      id: `evt_${type}`,
+      type,
+      // Real Stripe events carry `created` (Unix seconds); R-13 needs it.
+      created: 1_800_000_000,
+      data: { object },
+    });
     return POST(
       new Request("https://braidr.netlify.app/api/stripe/webhook", {
         method: "POST",

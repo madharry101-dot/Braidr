@@ -45,6 +45,7 @@ function makeAdmin(claimResult: string | null, claimError: unknown = null) {
   const rpc = jest.fn((name: string) => {
     calls.push(name);
     if (name === RPC.claim) return Promise.resolve({ data: claimResult, error: claimError });
+    if (name.startsWith("apply_stripe_")) return Promise.resolve({ data: "applied", error: null });
     return Promise.resolve({ data: null, error: null });
   });
   const from = jest.fn(() => ({
@@ -76,7 +77,13 @@ describe("stripe webhook dedup ledger (R-06)", () => {
   });
 
   function event(type: string, object: Record<string, unknown> = {}) {
-    mockConstructEvent.mockReturnValue({ id: "evt_test_123", type, data: { object } });
+    mockConstructEvent.mockReturnValue({
+      id: "evt_test_123",
+      type,
+      // Real Stripe events carry `created` (Unix seconds); R-13 needs it.
+      created: 1_800_000_000,
+      data: { object },
+    });
   }
 
   it("processes a freshly claimed event and marks it processed AFTER the handler", async () => {
@@ -161,7 +168,12 @@ describe("stripe webhook dedup ledger (R-06)", () => {
 
       expect((await POST(request())).status).toBe(200);
       expect(mockAccountsRetrieve).toHaveBeenCalledWith("acct_1");
-      expect(admin.from).toHaveBeenCalledWith("braider_profiles");
+      // R-13 routes the write through apply_stripe_account_state, so assert on
+      // the VALUE handed to it rather than merely that a table was touched.
+      expect(admin.rpc).toHaveBeenCalledWith(
+        "apply_stripe_account_state",
+        expect.objectContaining({ p_account_id: "acct_1", p_charges_enabled: false })
+      );
     });
 
     it("treats a 404 as terminal, logs at error level, and applies nothing", async () => {
@@ -178,6 +190,7 @@ describe("stripe webhook dedup ledger (R-06)", () => {
       expect(calls).toEqual([RPC.claim, RPC.complete]);
       expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("404"));
       expect(admin.from).not.toHaveBeenCalled();
+      expect(admin.rpc).not.toHaveBeenCalledWith("apply_stripe_account_state", expect.anything());
     });
   });
 

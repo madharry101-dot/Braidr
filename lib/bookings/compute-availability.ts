@@ -27,8 +27,11 @@ export async function computeAvailability(
       .from("braider_availability_rules")
       .select("day_of_week, start_time, end_time")
       .eq("braider_id", braiderId),
+    // R-12 — the VIEW, never the base table. The table carries `reason`,
+    // free text a braider writes for themselves, and nothing in the booking
+    // flow has any business reading it.
     supabase
-      .from("braider_blocked_dates")
+      .from("public_blocked_dates")
       .select("blocked_date")
       .eq("braider_id", braiderId)
       .gte("blocked_date", dateFrom)

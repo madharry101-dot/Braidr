@@ -834,6 +834,20 @@ export interface Database {
       // braider-CONFIRMED hair type only (null until a braider confirms it).
       // Never stripe_customer_id / referral_code / date_of_birth. Replaces
       // the profiles_select_own_clients policy. See 20260911000002.
+      // R-12: braider unavailability for the booking flow. Deliberately
+      // omits `reason` (personal free text a braider writes for themselves),
+      // plus `id` and `created_at`. Read this — never braider_blocked_dates —
+      // when showing anyone other than the braider themselves.
+      // See 20260929000001.
+      public_blocked_dates: {
+        Row: {
+          braider_id: string;
+          blocked_date: string;
+        };
+        Insert: Record<string, never>;
+        Update: Record<string, never>;
+        Relationships: [];
+      };
       braider_client_profiles: {
         Row: {
           id: string;

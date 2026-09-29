@@ -14,7 +14,10 @@ off — they are compensating controls for accepted risks, not nice-to-haves.
 **R-01 to R-12 are all closed, fixed and live** as of 2026-09-29. There was
 never an R-05 — the original numbering skipped it.
 
-**R-13 is the only open finding**, and it is gated below under Payments.
+**R-13 is also closed** (2026-09-29), ahead of its gate — it was to be done
+before the first paying subscriber, and there are none yet. **No numbered
+finding is outstanding.** What remains below is delivery and launch work, not
+audit findings.
 
 ---
 
@@ -125,47 +128,14 @@ Doing this changes several things that are currently pinned to
 
 ## Payments
 
-- [ ] **R-13 — subscription event ordering residual. MUST CLOSE BEFORE THE
-      FIRST PAYING SUBSCRIBER.**
-      R-06 makes `customer.subscription.*` and `account.updated` fetch the
-      current object from Stripe rather than trusting the event payload, so a
-      stale event can no longer carry stale data. That removes most of the
-      risk but **not all of it**: the webhook dedup lease is per `event_id`,
-      not per subscription. Two _different_ events for the same subscription
-      can still be processed concurrently, both fetch, and the one whose fetch
-      returned older data can win the write.
-      **Worst case: a cancellation is overwritten by a slightly older update
-      and a cancelled subscriber keeps paid access** — or the reverse, a paying
-      subscriber loses it.
-      The window is small (both fetches must straddle a state change) and
-      today the exposure is zero because there are no paying subscribers. It
-      stops being zero the moment there is one.
-      **Recommended fix: the watermark, not the advisory lock.** A lock would
-      have to span the Stripe fetch AND the write for the second writer to
-      read fresh state — but that fetch is an outbound HTTP call, and
-      PostgREST is stateless: there is no session to hold a session-level
-      advisory lock across, and a transaction-scoped one cannot contain an
-      HTTP call. Making it work would mean hand-rolling a lease with its own
-      expiry, i.e. rebuilding R-06's ledger for a second purpose.
-      The watermark is a single atomic compare-and-set: store the applied
-      `event.created` per Stripe object and make the state write conditional
-      on it, inside one Postgres function so the guard and the write commit
-      together. Same optimistic-concurrency shape as `if_version`.
-      It COMPOSES with the fetch-current behaviour already shipped in R-06 —
-      the fetch supplies freshness, the watermark supplies ordering — so keep
-      both. Deliberately deferred from R-06; fetch-only was the agreed scope.
-
-## Post-launch
-
-Not blocking launch, but decided and written down rather than forgotten.
-
-- [ ] **Rate-limit `GET /api/braiders` (braider search).**
-      Left unlimited deliberately (R-09, 2026-09-29). It requires a signed-in
-      user, so this is authenticated-user scraping of the braider directory
-      rather than an anonymous vector — the original finding implied
-      otherwise. Worth a limiter once there are enough braiders that the
-      directory is itself worth scraping. It would want its own group with
-      `onOutage: "open"`, since browsing must not break when Upstash does.
+- [x] **R-13 — Stripe object event ordering. CLOSED 2026-09-29 (`4df33e0`).**
+      A per-object watermark on `event.created` plus a terminal-cancellation
+      rule, both enforced in the database, guard `customer.subscription.*` and
+      `account.updated`. Verified against real Postgres: guarded 7/7, the old
+      unguarded path 3/7 — it re-enabled a cancelled subscription both from an
+      older event and from one sharing the same second.
+      Re-run `scripts/verify-stripe-object-ordering.mjs` after any change to
+      the webhook handlers or those functions.
 
 ## Legal and content
 

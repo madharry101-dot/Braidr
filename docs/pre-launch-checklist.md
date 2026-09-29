@@ -45,6 +45,19 @@ never an R-05 — the original numbering skipped it.
       newsletter, the R-08 Google sign-in notice) depends on a sender that
       cannot deliver.
 
+- [ ] **CSP alert delivery verified.**
+      The daily check in `/api/cron/daily` emails when `csp_violation_reports`
+      has new rows (one email per noisy day, throttled on `last_alerted_at`).
+      It therefore depends on everything above: a verified sending domain and
+      working SMTP. Two things to confirm once those land:
+      (a) `CSP_ALERT_EMAIL` is set in Netlify — if it is not, the check runs
+      every day, finds violations, and logs "NOBODY IS BEING TOLD" while
+      sending nothing;
+      (b) an alert actually ARRIVES. Seed one row into
+      `csp_violation_reports`, set `cron_alert_state.last_alerted_at` back
+      more than 24 hours, run the cron by hand, and confirm the email lands.
+      Until that is done, this alerting path has never delivered a message.
+
 - [ ] **Registration should not block on the email send, and needs its own
       timeout.** Even with good SMTP, signup currently fails closed with a 502
       if delivery is slow and the caller sees nothing useful — no error, no
